@@ -376,7 +376,7 @@ class CollectorEndToEndTests(unittest.TestCase):
             self.assertEqual(result, 0)
             extracted = output / "teams" / "team-001" / "submission" / "adapter.py"
             self.assertEqual(extracted.read_text(), "collected")
-            manifest = json.loads((output / "intake-manifest.json").read_text())
+            manifest = json.loads((output / "intake-manifest.json").read_text(encoding="utf-8"))
             self.assertEqual(manifest["collected_count"], 1)
 
             mismatch_output = root / "intake-mismatch"
@@ -386,7 +386,9 @@ class CollectorEndToEndTests(unittest.TestCase):
             ), mock.patch.dict(os.environ, {"GH_TOKEN": "test-token"}):
                 mismatch_result = collect(mismatch_arguments)
             self.assertEqual(mismatch_result, 1)
-            mismatch_manifest = json.loads((mismatch_output / "intake-manifest.json").read_text())
+            mismatch_manifest = json.loads(
+                (mismatch_output / "intake-manifest.json").read_text(encoding="utf-8")
+            )
             self.assertEqual(mismatch_manifest["submissions"][0]["status"], "ERROR")
             self.assertIn("SHA-256", mismatch_manifest["submissions"][0]["error"])
 
