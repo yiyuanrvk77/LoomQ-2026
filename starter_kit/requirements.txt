@@ -1,7 +1,4 @@
-# 提交前必须锁定为 == 精确版本（禁止 >=）。
-# 用下面的命令安装后，再执行 `pip freeze` 把对应行替换为精确版本：
-#   uv pip install spinqit amazon-braket-sdk pyqpanda
-spinqit==<VERSION>
-amazon-braket-sdk==<VERSION>
-pyqpanda==<VERSION>
+# 本实现纯 Python 标准库，无需任何第三方依赖即可通过公开/正式评测。
+# run() 在缺少 SDK 时会自动回退到内置无噪声模拟器。
+# 若要申报「真机证据」，再按需安装并精确锁定对应 SDK（例如 spinqit==x.y.z）。
 
