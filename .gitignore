@@ -5,3 +5,10 @@
 **/.DStore
 __pycache__/
 *.py[cod]
+
+# 密钥与本地配置（千万不要提交）
+.env
+.env.*
+!.env.example
+*.key
+*.pem
