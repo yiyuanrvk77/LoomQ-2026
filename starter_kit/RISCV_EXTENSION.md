@@ -38,7 +38,9 @@ quant rd, imm
 
 ## 5. 二进制编码规格（R 型）
 
-建议采用 RISC-V 预留的 custom-0 opcode：
+采用**开源 RISC-V 指令集架构**预留的自定义扩展空间 custom-0 opcode
+（`0001011`，见 RISC-V Unprivileged ISA 规范的 custom 指令编码区），使 QUANT 扩展
+闭环到开源、可自由实现的指令集，而非私有编码：
 
 | 位段 | 含义 | 取值 |
 |---|---|---|
