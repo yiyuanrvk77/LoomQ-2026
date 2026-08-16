@@ -15,7 +15,7 @@ try:
     from .circuit_gen import ghz, grover_3, qft, random_circuit
     from .hybrid import compile_hybrid
     from .qasm_parser import Circuit, Gate, parse
-    from .simulator import Simulator, probabilities, simulate
+    from .simulator import Simulator, probabilities, simulate, simulate_with_noise
     from .transpiler import emit, parse_braket, parse_originq, parse_target
 except ImportError:  # 脚本方式直接运行时无包上下文
     from agent import agent_chat
@@ -23,7 +23,7 @@ except ImportError:  # 脚本方式直接运行时无包上下文
     from circuit_gen import ghz, grover_3, qft, random_circuit
     from hybrid import compile_hybrid
     from qasm_parser import Circuit, Gate, parse
-    from simulator import Simulator, probabilities, simulate
+    from simulator import Simulator, probabilities, simulate, simulate_with_noise
     from transpiler import emit, parse_braket, parse_originq, parse_target
 
 SUPPORTED_TARGETS = ("spinq", "originq", "braket")
@@ -83,7 +83,7 @@ def run(qasm_str: str, target: str, shots: int) -> Dict[str, Any]:
 
 __all__ = [
     "transpile", "run", "agent_chat", "compile_hybrid",
-    "parse", "simulate", "probabilities", "emit", "parse_target",
+    "parse", "simulate", "simulate_with_noise", "probabilities", "emit", "parse_target",
     "parse_braket", "parse_originq", "ghz", "qft", "grover_3",
     "random_circuit", "run_real", "run_braket", "run_spinq",
     "SUPPORTED_TARGETS", "Circuit", "Gate", "Simulator",

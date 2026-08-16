@@ -189,6 +189,29 @@ def simulate(circuit: Circuit, shots: int) -> dict[str, int]:
     return counts
 
 
+def simulate_with_noise(circuit: Circuit, shots: int, error_rate: float = 0.02) -> dict[str, int]:
+    """带噪声的态矢量模拟：测量采样后以 error_rate 概率随机翻转比特。
+
+    用于教学演示「真机为何不完美」：模拟读取误差（bit-flip readout noise），
+    让理想上确定的结果也出现少量错误比特，直观看到噪声把分布"抹平"。
+    """
+    sim = Simulator(circuit.num_qubits)
+    for gate in circuit.gates:
+        sim.apply(gate)
+
+    probs = [abs(amplitude) ** 2 for amplitude in sim.state]
+    sampled = random.choices(range(1 << circuit.num_qubits), weights=probs, k=shots)
+    clbit_to_qubit = _measure_map(circuit)
+    counts: dict[str, int] = {}
+    for index in sampled:
+        for q in range(circuit.num_qubits):
+            if random.random() < error_rate:
+                index ^= 1 << q
+        key = _key_for_index(index, circuit, clbit_to_qubit)
+        counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
 """Emit the unified IR as each backend's native target representation."""
 
 

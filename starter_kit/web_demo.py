@@ -137,6 +137,18 @@ measure q[1] -> c[1];
 </textarea>
   <br><button id="transpile-btn">翻译成三家</button>
   <div id="transpile-result"></div>
+  <hr style="margin:28px 0;border:0;border-top:1px solid #e5e7eb;">
+  <h2 style="font-size:1.2em;">混合编译 · 量子 + 经典 → RISC-V</h2>
+  <p class="hint">展示 L3 如何把 Hybrid-QASM 的经典块编译成 RISC-V 汇编。</p>
+  <textarea id="hybrid-input">OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[1];
+creg c[1];
+measure q[0] -> c[0];
+classical { if (c[0] == 1) { r1 = 7; } else { r1 = 3; } }
+</textarea>
+  <br><button id="compile-btn">编译</button>
+  <div id="compile-result"></div>
 <script>
   document.getElementById('go').addEventListener('click', function () {
     var prompt = document.getElementById('prompt').value.trim();
@@ -170,6 +182,17 @@ measure q[1] -> c[1];
         .then(function (data) { render(data); })
         .catch(function (e) { result.innerHTML = '<p class="error">请求失败：' + e + '</p>'; });
     });
+  });
+
+  document.getElementById('compile-btn').addEventListener('click', function () {
+    var hybrid = document.getElementById('hybrid-input').value.trim();
+    var el = document.getElementById('compile-result');
+    if (!hybrid) { el.innerHTML = '<p class="error">请输入 Hybrid-QASM。</p>'; return; }
+    el.innerHTML = '<p>正在编译……</p>';
+    fetch('/compile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hybrid: hybrid }) })
+      .then(function (r) { return r.json(); })
+      .then(function (data) { renderCompile(data); })
+      .catch(function (e) { el.innerHTML = '<p class="error">编译失败：' + e + '</p>'; });
   });
 
   function render(data) {
@@ -224,17 +247,19 @@ measure q[1] -> c[1];
     var keys = {};
     Object.keys(data.ideal || {}).forEach(function (k) { keys[k] = true; });
     Object.keys(data.counts || {}).forEach(function (k) { keys[k] = true; });
+    Object.keys(data.noisy || {}).forEach(function (k) { keys[k] = true; });
     if (data.real) { Object.keys(data.real).forEach(function (k) { keys[k] = true; }); }
-    var html = '<div class="compare"><p class="hint">概率对比（理想 / 实测 / 真机）：</p>';
+    var html = '<div class="compare"><p class="hint">概率对比（理想 / 实测 / 噪声模拟 / 真机）：</p>';
     Object.keys(keys).sort().forEach(function (key) {
       html += '<div class="cmp-row"><span class="cmp-key">' + key + '</span>';
       var iv = data.ideal ? (data.ideal[key] || 0) : 0;
       var cv = data.counts ? (data.counts[key] || 0) / data.shots : 0;
+      var nv = data.noisy ? (data.noisy[key] || 0) : 0;
       var rv = data.real ? (data.real[key] || 0) : 0;
-      html += cmpBar(iv, '#94a3b8') + cmpBar(cv, '#2563eb') + cmpBar(rv, '#dc2626');
+      html += cmpBar(iv, '#94a3b8') + cmpBar(cv, '#2563eb') + cmpBar(nv, '#f59e0b') + cmpBar(rv, '#dc2626');
       html += '</div>';
     });
-    html += '<div class="legend"><span style="background:#94a3b8"></span>理想（无噪声） <span style="background:#2563eb"></span>实测采样 <span style="background:#dc2626"></span>真机（SpinQ Gemini）</div>';
+    html += '<div class="legend"><span style="background:#94a3b8"></span>理想（无噪声） <span style="background:#2563eb"></span>实测采样 <span style="background:#f59e0b"></span>噪声模拟 <span style="background:#dc2626"></span>真机（SpinQ Gemini）</div>';
     html += '</div>';
     return html;
   }
@@ -251,6 +276,14 @@ measure q[1] -> c[1];
     Object.keys(data.results).forEach(function (t) {
       html += '<p class="hint">' + escapeHtml(data.labels[t]) + '：</p><pre>' + escapeHtml(data.results[t]) + '</pre>';
     });
+    el.innerHTML = html;
+  }
+
+  function renderCompile(data) {
+    var el = document.getElementById('compile-result');
+    if (!data.ok) { el.innerHTML = '<p class="error">' + escapeHtml(data.error) + '</p>'; return; }
+    var html = '<p class="hint">量子操作序列：</p><pre>' + escapeHtml(JSON.stringify(data.quantum_ops, null, 2)) + '</pre>';
+    html += '<p class="hint">RISC-V 汇编：</p><pre>' + escapeHtml(data.assembly) + '</pre>';
     el.innerHTML = html;
   }
 
@@ -282,6 +315,9 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == "/preset":
                 self._handle_preset(data)
                 return
+            if self.path == "/compile":
+                self._handle_compile(data)
+                return
             prompt = (data.get("prompt") or "").strip()
             if not prompt:
                 self._json({"ok": False, "error": "请输入一句想做的事。"})
@@ -311,6 +347,7 @@ class Handler(BaseHTTPRequestHandler):
             and sorted(g.name for g in circuit.gates) == ["cx", "h"]
         )
         real = _load_real_bell() if is_bell else None
+        noisy_counts = adapter.simulate_with_noise(circuit, 1024, 0.03)
         return {
             "ok": True,
             "kind": "qasm",
@@ -318,6 +355,7 @@ class Handler(BaseHTTPRequestHandler):
             "counts": result["counts"],
             "shots": result["shots"],
             "ideal": ideal,
+            "noisy": {k: v / 1024 for k, v in noisy_counts.items()},
             "gates": diagram["gates"],
             "num_qubits": diagram["num_qubits"],
             "real": real,
@@ -334,6 +372,21 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"ok": False, "error": "未知算法"})
             return
         self._json(self._run_payload(presets[name]))
+
+    def _handle_compile(self, data: dict) -> None:
+        hybrid = (data.get("hybrid") or "").strip()
+        if not hybrid:
+            self._json({"ok": False, "error": "请输入 Hybrid-QASM。"})
+            return
+        quantum_ops, assembly = adapter.compile_hybrid(hybrid)
+        self._json(
+            {
+                "ok": True,
+                "kind": "compile",
+                "quantum_ops": quantum_ops,
+                "assembly": assembly,
+            }
+        )
 
     def _handle_transpile(self, data: dict) -> None:
         qasm = (data.get("qasm") or "").strip()
