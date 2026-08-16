@@ -59,10 +59,17 @@ def run(qasm_str: str, target: str, shots: int) -> Dict[str, Any]:
     if target not in SUPPORTED_TARGETS:
         raise ValueError("unsupported target: %s" % target)
     circuit = parse(qasm_str)
+    meta = {
+        "transpiled_gates": len(circuit.gates),
+        "depth": _circuit_depth(circuit),
+        "source": "native",
+    }
     try:
         counts = run_real(qasm_str, target, shots)
-    except Exception:  # noqa: BLE001 - SDK missing or unverified -> fallback
+    except Exception as exc:  # noqa: BLE001 - SDK missing/unavailable -> 显式回退并记录原因
         counts = simulate(circuit, shots)
+        meta["source"] = "internal_simulator_fallback"
+        meta["fallback_reason"] = "%s: %s" % (type(exc).__name__, exc)
     return {
         "backend": _BACKEND_IDS[target],
         "job_id": uuid.uuid4().hex,
@@ -70,10 +77,7 @@ def run(qasm_str: str, target: str, shots: int) -> Dict[str, Any]:
         "counts": counts,
         "bit_order": "little",
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "meta": {
-            "transpiled_gates": len(circuit.gates),
-            "depth": _circuit_depth(circuit),
-        },
+        "meta": meta,
     }
 
 

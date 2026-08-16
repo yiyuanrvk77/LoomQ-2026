@@ -1,0 +1,29 @@
+{
+  "platform": "SpinQ Cloud",
+  "platform_code": "gemini_vp",
+  "machine_code": "Gemini-pro-1",
+  "machine_name": "2Qubit核磁量子计算机",
+  "job_id": "G-260816-0001",
+  "task_name": "LoomQ-Bell",
+  "task_status": "S",
+  "shots": 1024,
+  "qasm": "OPENQASM 2.0; \ninclude \"qelib1.inc\";\nqreg q[2];\n\nh q[0];\ncx q[0],q[1];",
+  "description": "LoomQ 2026 real machine Bell state",
+  "created_time_utc": "2026-08-15T17:31:22.293+00:00",
+  "start_time_utc": "2026-08-15T17:31:22.314+00:00",
+  "end_time_utc": "2026-08-15T17:32:55.480+00:00",
+  "time_cost_seconds": 3.0,
+  "user": "weixin-1786809226611",
+  "counts": {
+    "00": 471,
+    "11": 453,
+    "01": 43,
+    "10": 56
+  },
+  "probabilities": {
+    "00": 0.46040112,
+    "11": 0.44271978,
+    "01": 0.04178325,
+    "10": 0.05509585
+  }
+}

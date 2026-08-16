@@ -38,22 +38,21 @@ _BRAKET_GATES = {
     "h": "h",
     "x": "x",
     "s": "s",
-    "sdg": "sdg",
+    "sdg": "si",
     "t": "t",
-    "tdg": "tdg",
+    "tdg": "ti",
     "rz": "rz",
     "ry": "ry",
     "cx": "cnot",
-    "cu1": "cp",
+    "cu1": "cphaseshift",
     "swap": "swap",
-    "ccx": "ccx",
+    "ccx": "ccnot",
 }
 
 
 def _emit_braket(circ: Circuit) -> str:
     lines = [
         "OPENQASM 3.0;",
-        'include "stdgates.inc";',
         f"qubit[{circ.num_qubits}] q;",
         f"bit[{circ.num_clbits}] c;",
     ]
@@ -137,9 +136,10 @@ def parse_braket(text: str) -> Circuit:
     measures: list[tuple[int, int]] = []
 
     gate_map = {
-        "h": "h", "x": "x", "s": "s", "sdg": "sdg", "t": "t", "tdg": "tdg",
+        "h": "h", "x": "x", "s": "s", "sdg": "sdg", "si": "sdg",
+        "t": "t", "tdg": "tdg", "ti": "tdg",
         "rz": "rz", "ry": "ry", "cnot": "cx", "cx": "cx", "cp": "cu1",
-        "cu1": "cu1", "swap": "swap", "ccx": "ccx",
+        "cu1": "cu1", "cphaseshift": "cu1", "swap": "swap", "ccx": "ccx", "ccnot": "ccx",
     }
 
     for raw in text.splitlines():

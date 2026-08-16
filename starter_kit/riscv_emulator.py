@@ -136,6 +136,22 @@ class TinyRISCVEmulator:
                 if label not in self.labels:
                     raise ValueError(f"未定义的跳转标签: {label}")
                 next_pc = self.labels[label]
+
+            elif op == "quant":
+                # quant rd, imm —— 自定义量子扩展指令（见 RISCV_EXTENSION.md）
+                # 状态约定：0=|0⟩, 1=|1⟩, 2=|+⟩, 3=|−⟩
+                rd, imm = args[0], int(args[1])
+                v = self.get_register(rd)
+                if imm == 0:        # H：|0⟩↔|+⟩、|1⟩↔|−⟩
+                    v = {0: 2, 2: 0, 1: 3, 3: 1}[v]
+                elif imm == 1:      # X（NOT）：|0⟩↔|1⟩、|+⟩↔|−⟩
+                    v = v ^ 1
+                elif imm == 2:      # Z（相位翻转）：|+⟩↔|−⟩，|0⟩/|1⟩ 不变
+                    if v in (2, 3):
+                        v = v ^ 1
+                else:
+                    raise ValueError(f"不支持的量子门编码: {imm}")
+                self.set_register(rd, v)
                 
             else:
                 raise ValueError(f"不支持的指令操作: {op}")

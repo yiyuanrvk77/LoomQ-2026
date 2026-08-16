@@ -44,9 +44,9 @@ def run_spinq(qasm_str: str, shots: int) -> Dict[str, int]:
         "h": sp.H,
         "x": sp.X,
         "s": sp.S,
-        "sdg": sp.SDG,
+        "sdg": sp.Sd,
         "t": sp.T,
-        "tdg": sp.TDG,
+        "tdg": sp.Td,
         "cx": sp.CX,
         "swap": sp.SWAP,
         "ccx": sp.CCX,
@@ -55,7 +55,7 @@ def run_spinq(qasm_str: str, shots: int) -> Dict[str, int]:
     for gate in circ.gates:
         name = gate.name
         if name in ("rz", "ry"):
-            g = sp.RZ if name == "rz" else sp.RY
+            g = sp.Rz if name == "rz" else sp.Ry
             circuit << (g, q[gate.qubits[0]], gate.params[0])
         elif name == "cu1":
             circuit << (sp.CP, (q[gate.qubits[0]], q[gate.qubits[1]]), gate.params[0])
@@ -65,9 +65,14 @@ def run_spinq(qasm_str: str, shots: int) -> Dict[str, int]:
             circuit << (no_param[name], tuple(q[i] for i in gate.qubits))
 
     for qubit, clbit in circ.measures:
-        circuit << (sp.MEASURE, (q[qubit], c[clbit]))
+        circuit.measure(q[qubit], c[clbit])
 
-    result = sp.BasicSimulator().run(circuit, shots=shots)
+    compiler = sp.get_compiler("native")
+    engine = sp.get_basic_simulator()
+    exe = compiler.compile(circuit, 0)
+    config = sp.BasicSimulatorConfig()
+    config.configure_shots(shots)
+    result = engine.execute(exe, config)
     counts = dict(result.counts)
     # SpinQit orders keys with q[0] leftmost by default; normalize to little.
     return {key[::-1]: value for key, value in counts.items()}
