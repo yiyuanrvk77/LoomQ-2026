@@ -8,6 +8,38 @@ LoomQ 量子接入平权计划 - 轻量级 RISC-V 寄存器与控制流模拟器
 
 from typing import Dict, List, Tuple, Any
 
+
+# 自定义量子扩展指令 QUANT 的二进制编码（R 型，custom-0）
+# 见 RISCV_EXTENSION.md：funct7=0000001, rs2=imm, rs1=0, funct3=000, rd=目标, opcode=0001011
+QUANT_OPCODE = 0b0001011
+QUANT_FUNCT7 = 0b0000001
+QUANT_FUNCT3 = 0b000
+
+
+def encode_quant(rd: int, imm: int) -> int:
+    """把 `quant rd, imm` 编码成 32 位 RISC-V 机器码。"""
+    if not (0 <= rd <= 31) or not (0 <= imm <= 31):
+        raise ValueError(f"QUANT 编码越界: rd={rd}, imm={imm}")
+    word = 0
+    word |= (QUANT_FUNCT7 & 0x7F) << 25
+    word |= (imm & 0x1F) << 20          # rs2 字段承载门编码 imm
+    word |= (QUANT_FUNCT3 & 0x7) << 12
+    word |= (rd & 0x1F) << 7
+    word |= QUANT_OPCODE & 0x7F
+    return word
+
+
+def decode_quant(word: int) -> Tuple[int, int]:
+    """解码 32 位机器码，返回 (rd, imm)。非 QUANT 机器码会抛错。"""
+    opcode = word & 0x7F
+    funct7 = (word >> 25) & 0x7F
+    if opcode != QUANT_OPCODE or funct7 != QUANT_FUNCT7:
+        raise ValueError(f"不是合法的 QUANT 指令机器码: 0x{word:08x}")
+    rd = (word >> 7) & 0x1F
+    imm = (word >> 20) & 0x1F
+    return rd, imm
+
+
 class TinyRISCVEmulator:
     def __init__(self):
         # 32个通用寄存器 x0 - x31，x0 恒为 0
@@ -74,6 +106,12 @@ class TinyRISCVEmulator:
             tokens = line.replace(",", " ").split()
             op = tokens[0].lower()
             args = tokens[1:]
+            if op == "quant":
+                # quant rd, imm —— 编码成 32 位机器码，再进入执行链路解码
+                rd = int(args[0].strip().lower().lstrip("x"))
+                imm = int(args[1])
+                temp_instructions.append(("quant", [str(encode_quant(rd, imm))]))
+                continue
             temp_instructions.append((op, args))
             
         self.instructions = temp_instructions
@@ -138,10 +176,10 @@ class TinyRISCVEmulator:
                 next_pc = self.labels[label]
 
             elif op == "quant":
-                # quant rd, imm —— 自定义量子扩展指令（见 RISCV_EXTENSION.md）
+                # quant <machine_code> —— 解码机器码后执行（见 RISCV_EXTENSION.md）
                 # 状态约定：0=|0⟩, 1=|1⟩, 2=|+⟩, 3=|−⟩
-                rd, imm = args[0], int(args[1])
-                v = self.get_register(rd)
+                rd_idx, imm = decode_quant(int(args[0]))
+                v = self.registers[rd_idx]
                 if imm == 0:        # H：|0⟩↔|+⟩、|1⟩↔|−⟩
                     v = {0: 2, 2: 0, 1: 3, 3: 1}[v]
                 elif imm == 1:      # X（NOT）：|0⟩↔|1⟩、|+⟩↔|−⟩
@@ -151,7 +189,8 @@ class TinyRISCVEmulator:
                         v = v ^ 1
                 else:
                     raise ValueError(f"不支持的量子门编码: {imm}")
-                self.set_register(rd, v)
+                if rd_idx != 0:
+                    self.registers[rd_idx] = v
                 
             else:
                 raise ValueError(f"不支持的指令操作: {op}")

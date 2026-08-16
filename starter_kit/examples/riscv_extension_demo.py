@@ -32,6 +32,16 @@ END:
 def main() -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
+    # 展示「汇编 -> 编码 -> 机器码 -> 解码」闭环
+    from riscv_emulator import decode_quant, encode_quant
+
+    print("== 编码/解码闭环（机器码真正进入执行链路）==")
+    for rd, imm in ((1, 0), (1, 1), (1, 2)):
+        word = encode_quant(rd, imm)
+        decoded = decode_quant(word)
+        print(f"  quant x{rd}, {imm}  ->  0x{word:08X}  ->  (x{decoded[0]}, {decoded[1]})")
+        assert decoded == (rd, imm)
+
     emu = TinyRISCVEmulator()
     emu.load_program(ASM)
     state = emu.execute()

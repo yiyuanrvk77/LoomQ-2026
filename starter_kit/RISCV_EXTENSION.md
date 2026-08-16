@@ -53,11 +53,17 @@ quant rd, imm
 
 ## 6. 实现与测试
 
-- 实现位置：`starter_kit/riscv_emulator.py` 的 `TinyRISCVEmulator.execute()` 中新增
-  `elif op == "quant":` 分支（保留全部官方指令不变）。
+- 实现位置：`starter_kit/riscv_emulator.py`（保留全部官方 L3 指令不变）。
+- **编码环节**：`encode_quant(rd, imm) -> int` 按第 5 节的 R 型布局，把 `quant rd, imm`
+  汇编编码成 32 位机器码；`load_program()` 解析到 `quant` 时立即编码，存入执行队列的
+  是机器码而非文本助记符。
+- **解码环节**：`decode_quant(word) -> (rd, imm)` 校验 `opcode==0001011` 且
+  `funct7==0000001` 后，从机器码提取 `rd` 与 `imm`；`execute()` 执行 `quant` 时先解码再
+  按门编码更新寄存器。
+- 即自定义指令的二进制编码真正进入「汇编 → 编码 → 机器码 → 解码 → 执行」的可运行闭环，
+  而非仅存在于本文档。
 - 端到端测试命令：
 
 ```bash
 python3 starter_kit/examples/riscv_extension_demo.py
 ```
-
