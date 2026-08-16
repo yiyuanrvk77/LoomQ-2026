@@ -1,0 +1,151 @@
+<div id="qec-lab">
+  <h3>量子纠错 · 重复码实验室</h3>
+
+  <div class="viz-controls">
+    <label class="form-label" for="modeSel">错误类型</label>
+    <select id="modeSel" class="form-select">
+      <option value="bit">位翻转码（X 错误）</option>
+      <option value="phase">相位翻转码（Z 错误）</option>
+    </select>
+  </div>
+
+  <div class="viz-controls">
+    <button type="button" class="btn" id="bEncode">编码</button>
+    <button type="button" class="btn" id="bQ0">注入 q0</button>
+    <button type="button" class="btn" id="bQ1">注入 q1</button>
+    <button type="button" class="btn" id="bQ2">注入 q2</button>
+    <button type="button" class="btn" id="bRandom">随机注入</button>
+    <button type="button" class="btn btn-primary" id="bMeasure">测 syndrome</button>
+    <button type="button" class="btn" id="bCorrect">纠正</button>
+    <button type="button" class="btn btn-ghost" id="bReset">重置</button>
+  </div>
+
+  <svg viewBox="0 0 720 290" role="img" aria-label="3 个数据比特与 2 个 syndrome 比特的纠错示意图">
+    <line class="conn" x1="160" y1="128" x2="240" y2="212"></line>
+    <line class="conn" x1="350" y1="128" x2="262" y2="212"></line>
+    <line class="conn" x1="370" y1="128" x2="458" y2="212"></line>
+    <line class="conn" x1="560" y1="128" x2="482" y2="212"></line>
+
+    <g id="g0">
+      <circle id="q0" class="qcircle" cx="140" cy="90" r="38"></circle>
+      <text class="qname" x="140" y="52" text-anchor="middle">q0</text>
+      <text id="s0" class="qstate" x="140" y="98" text-anchor="middle">|0⟩</text>
+      <text id="x0" class="errx" x="178" y="70" text-anchor="middle">✕</text>
+    </g>
+    <g id="g1">
+      <circle id="q1" class="qcircle" cx="360" cy="90" r="38"></circle>
+      <text class="qname" x="360" y="52" text-anchor="middle">q1</text>
+      <text id="s1" class="qstate" x="360" y="98" text-anchor="middle">|0⟩</text>
+      <text id="x1" class="errx" x="398" y="70" text-anchor="middle">✕</text>
+    </g>
+    <g id="g2">
+      <circle id="q2" class="qcircle" cx="580" cy="90" r="38"></circle>
+      <text class="qname" x="580" y="52" text-anchor="middle">q2</text>
+      <text id="s2" class="qstate" x="580" y="98" text-anchor="middle">|0⟩</text>
+      <text id="x2" class="errx" x="618" y="70" text-anchor="middle">✕</text>
+    </g>
+
+    <g>
+      <circle class="sycircle" cx="250" cy="235" r="26"></circle>
+      <text class="qname" x="250" y="205" text-anchor="middle">S1 = q0⊕q1</text>
+      <text id="syA" class="syn" x="250" y="241" text-anchor="middle">?</text>
+    </g>
+    <g>
+      <circle class="sycircle" cx="470" cy="235" r="26"></circle>
+      <text class="qname" x="470" y="205" text-anchor="middle">S2 = q1⊕q2</text>
+      <text id="syB" class="syn" x="470" y="241" text-anchor="middle">?</text>
+    </g>
+  </svg>
+
+  <div id="status" class="status" role="status" aria-live="polite">选择错误类型后，点「编码」开始</div>
+</div>
+
+<style>
+#qec-lab .qcircle { fill: var(--card); stroke: var(--border); stroke-width: 1.5; }
+#qec-lab .qcircle.err { stroke: var(--destructive); stroke-width: 3; }
+#qec-lab .qcircle.ok { stroke: var(--green); stroke-width: 3; }
+#qec-lab .sycircle { fill: var(--card); stroke: var(--accent); stroke-width: 1.5; }
+#qec-lab .conn { stroke: var(--border); stroke-width: 1.5; stroke-dasharray: 4 4; }
+#qec-lab .qstate { fill: var(--foreground); font-size: 18px; }
+#qec-lab .qstate.one { fill: var(--viz-series-1); font-weight: 500; }
+#qec-lab .qname { fill: var(--muted-foreground); font-size: 12px; }
+#qec-lab .syn { fill: var(--foreground); font-size: 16px; }
+#qec-lab .syn.hit { fill: var(--viz-series-1); font-weight: 500; }
+#qec-lab .errx { fill: var(--destructive); font-size: 18px; font-weight: 500; opacity: 0; }
+#qec-lab .errx.show { opacity: 1; }
+#qec-lab .status { color: var(--foreground); margin-top: 10px; }
+</style>
+
+<script>
+(function () {
+  var root = document.getElementById("qec-lab");
+  var mode = "bit";
+  var data = [0, 0, 0];
+  var errorAt = -1;
+  var measured = null;
+  var corrected = false;
+
+  var modeSel = root.querySelector("#modeSel");
+  var states = [root.querySelector("#s0"), root.querySelector("#s1"), root.querySelector("#s2")];
+  var circles = [root.querySelector("#q0"), root.querySelector("#q1"), root.querySelector("#q2")];
+  var crosses = [root.querySelector("#x0"), root.querySelector("#x1"), root.querySelector("#x2")];
+  var syA = root.querySelector("#syA");
+  var syB = root.querySelector("#syB");
+  var status = root.querySelector("#status");
+
+  function stLabel(v) { return mode === "bit" ? (v ? "|1⟩" : "|0⟩") : (v ? "|-⟩" : "|+⟩"); }
+  function errWord() { return mode === "bit" ? "位翻转（X）" : "相位翻转（Z）"; }
+  function encoded() { return mode === "bit" ? "|000⟩（逻辑 |0⟩）" : "|+ + +⟩（逻辑 |+⟩）"; }
+
+  function render() {
+    for (var i = 0; i < 3; i++) {
+      states[i].textContent = stLabel(data[i]);
+      states[i].classList.toggle("one", data[i] === 1);
+      circles[i].classList.remove("err", "ok");
+      crosses[i].classList.remove("show");
+      if (errorAt === i) {
+        circles[i].classList.add("err");
+        crosses[i].classList.add("show");
+      } else if (corrected) {
+        circles[i].classList.add("ok");
+      }
+    }
+    syA.textContent = measured ? String(measured[0]) : "?";
+    syB.textContent = measured ? String(measured[1]) : "?";
+    syA.classList.toggle("hit", measured && measured[0] === 1);
+    syB.classList.toggle("hit", measured && measured[1] === 1);
+
+    if (corrected) {
+      status.textContent = "已纠正，逻辑态完好";
+    } else if (measured) {
+      var key = String(measured[0]) + String(measured[1]);
+      var loc = { "10": "q0", "11": "q1", "01": "q2" }[key];
+      status.textContent = loc ? ("syndrome = " + key + " → 错误在 " + loc) : ("syndrome = 00 → 无错误");
+    } else if (errorAt >= 0) {
+      status.textContent = "q" + errorAt + " 发生了" + errWord() + "错误，点「测 syndrome」定位它";
+    } else {
+      status.textContent = "已编码为 " + encoded() + "，点「注入」或「随机注入」制造一个错误";
+    }
+  }
+
+  function resetFlow() { errorAt = -1; measured = null; corrected = false; }
+  function encode() { data = [0, 0, 0]; resetFlow(); render(); }
+  function inject(i) { data = [0, 0, 0]; data[i] = 1; errorAt = i; measured = null; corrected = false; render(); }
+  function randomError() { inject(Math.floor(Math.random() * 3)); }
+  function measure() { measured = [data[0] ^ data[1], data[1] ^ data[2]]; render(); }
+  function correct() { if (errorAt >= 0) { data[errorAt] = 0; } errorAt = -1; measured = null; corrected = true; render(); }
+  function reset() { data = [0, 0, 0]; resetFlow(); render(); }
+
+  modeSel.addEventListener("change", function () { mode = modeSel.value; reset(); });
+  root.querySelector("#bEncode").addEventListener("click", encode);
+  root.querySelector("#bQ0").addEventListener("click", function () { inject(0); });
+  root.querySelector("#bQ1").addEventListener("click", function () { inject(1); });
+  root.querySelector("#bQ2").addEventListener("click", function () { inject(2); });
+  root.querySelector("#bRandom").addEventListener("click", randomError);
+  root.querySelector("#bMeasure").addEventListener("click", measure);
+  root.querySelector("#bCorrect").addEventListener("click", correct);
+  root.querySelector("#bReset").addEventListener("click", reset);
+
+  render();
+})();
+</script>

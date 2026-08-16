@@ -118,7 +118,25 @@ HTML = """<!doctype html>
   <p class="hint">试试：生成一个 3 比特的 GHZ 纠缠态并全测量；或：15 比特零排队免费选哪个平台？</p>
   <textarea id="prompt" placeholder="在这里输入你想做的事……"></textarea>
   <br><button id="go">生成 / 运行</button>
+  <span class="hint" style="margin-left:10px;">快捷算法：</span>
+  <button class="preset" data-name="ghz3" style="background:#475569;">GHZ-3</button>
+  <button class="preset" data-name="grover3" style="background:#475569;">Grover-3</button>
+  <button class="preset" data-name="qft4" style="background:#475569;">QFT-4</button>
   <div id="result"></div>
+  <hr style="margin:28px 0;border:0;border-top:1px solid #e5e7eb;">
+  <h2 style="font-size:1.2em;">翻译官 · 同一电路的三家方言</h2>
+  <p class="hint">展示 LoomQ 中间层如何把一份 OpenQASM 2.0 翻译成三家后端各自的格式。</p>
+  <textarea id="qasm-input">OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[2];
+creg c[2];
+h q[0];
+cx q[0],q[1];
+measure q[0] -> c[0];
+measure q[1] -> c[1];
+</textarea>
+  <br><button id="transpile-btn">翻译成三家</button>
+  <div id="transpile-result"></div>
 <script>
   document.getElementById('go').addEventListener('click', function () {
     var prompt = document.getElementById('prompt').value.trim();
@@ -129,6 +147,29 @@ HTML = """<!doctype html>
       .then(function (r) { return r.json(); })
       .then(function (data) { render(data); })
       .catch(function (e) { result.innerHTML = '<p class="error">请求失败：' + e + '</p>'; });
+  });
+
+  document.getElementById('transpile-btn').addEventListener('click', function () {
+    var qasm = document.getElementById('qasm-input').value.trim();
+    var el = document.getElementById('transpile-result');
+    if (!qasm) { el.innerHTML = '<p class="error">请输入 QASM。</p>'; return; }
+    el.innerHTML = '<p>正在翻译……</p>';
+    fetch('/transpile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ qasm: qasm }) })
+      .then(function (r) { return r.json(); })
+      .then(function (data) { renderTranspile(data); })
+      .catch(function (e) { el.innerHTML = '<p class="error">翻译失败：' + e + '</p>'; });
+  });
+
+  document.querySelectorAll('.preset').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var name = btn.getAttribute('data-name');
+      var result = document.getElementById('result');
+      result.innerHTML = '<p>正在运行算法……</p>';
+      fetch('/preset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name }) })
+        .then(function (r) { return r.json(); })
+        .then(function (data) { render(data); })
+        .catch(function (e) { result.innerHTML = '<p class="error">请求失败：' + e + '</p>'; });
+    });
   });
 
   function render(data) {
@@ -203,6 +244,16 @@ HTML = """<!doctype html>
     return '<div class="cmp-track"><div class="cmp-fill" style="width:' + Math.min(100, pct) + '%;background:' + color + '"></div></div><span class="cmp-val">' + pct.toFixed(1) + '%</span>';
   }
 
+  function renderTranspile(data) {
+    var el = document.getElementById('transpile-result');
+    if (!data.ok) { el.innerHTML = '<p class="error">' + escapeHtml(data.error) + '</p>'; return; }
+    var html = '';
+    Object.keys(data.results).forEach(function (t) {
+      html += '<p class="hint">' + escapeHtml(data.labels[t]) + '：</p><pre>' + escapeHtml(data.results[t]) + '</pre>';
+    });
+    el.innerHTML = html;
+  }
+
   function escapeHtml(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
@@ -225,36 +276,19 @@ class Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", "0"))
         try:
             data = json.loads(self.rfile.read(length) or b"{}")
+            if self.path == "/transpile":
+                self._handle_transpile(data)
+                return
+            if self.path == "/preset":
+                self._handle_preset(data)
+                return
             prompt = (data.get("prompt") or "").strip()
             if not prompt:
                 self._json({"ok": False, "error": "请输入一句想做的事。"})
                 return
             reply = adapter.agent_chat(prompt)
             if "OPENQASM" in reply:
-                result = adapter.run(reply, "braket", 1024)
-                circuit = adapter.parse(reply)
-                ideal = adapter.probabilities(circuit)
-                diagram = _circuit_diagram(reply)
-                # 仅当是 2 比特 Bell 态时，附上真机实测噪声对比
-                is_bell = (
-                    diagram["num_qubits"] == 2
-                    and len(circuit.gates) == 2
-                    and sorted(g.name for g in circuit.gates) == ["cx", "h"]
-                )
-                real = _load_real_bell() if is_bell else None
-                self._json(
-                    {
-                        "ok": True,
-                        "kind": "qasm",
-                        "qasm": reply,
-                        "counts": result["counts"],
-                        "shots": result["shots"],
-                        "ideal": ideal,
-                        "gates": diagram["gates"],
-                        "num_qubits": diagram["num_qubits"],
-                        "real": real,
-                    }
-                )
+                self._json(self._run_payload(reply))
             else:
                 self._json({"ok": True, "kind": "answer", "answer": reply})
         except Exception as exc:  # noqa: BLE001
@@ -265,6 +299,56 @@ class Handler(BaseHTTPRequestHandler):
                     "LOOMQ_LLM_MODEL，或写进 starter_kit/.env（参考 .env.example）。"
                 )
             self._json({"ok": False, "error": message})
+
+    def _run_payload(self, qasm: str) -> dict:
+        result = adapter.run(qasm, "braket", 1024)
+        circuit = adapter.parse(qasm)
+        ideal = adapter.probabilities(circuit)
+        diagram = _circuit_diagram(qasm)
+        is_bell = (
+            diagram["num_qubits"] == 2
+            and len(circuit.gates) == 2
+            and sorted(g.name for g in circuit.gates) == ["cx", "h"]
+        )
+        real = _load_real_bell() if is_bell else None
+        return {
+            "ok": True,
+            "kind": "qasm",
+            "qasm": qasm,
+            "counts": result["counts"],
+            "shots": result["shots"],
+            "ideal": ideal,
+            "gates": diagram["gates"],
+            "num_qubits": diagram["num_qubits"],
+            "real": real,
+        }
+
+    def _handle_preset(self, data: dict) -> None:
+        presets = {
+            "ghz3": adapter.ghz(3),
+            "grover3": adapter.grover_3(7),
+            "qft4": adapter.qft(4),
+        }
+        name = (data.get("name") or "").strip()
+        if name not in presets:
+            self._json({"ok": False, "error": "未知算法"})
+            return
+        self._json(self._run_payload(presets[name]))
+
+    def _handle_transpile(self, data: dict) -> None:
+        qasm = (data.get("qasm") or "").strip()
+        if not qasm:
+            self._json({"ok": False, "error": "请输入要翻译的 OpenQASM 2.0。"})
+            return
+        labels = {
+            "spinq": "SpinQ（OpenQASM 2.0）",
+            "braket": "Braket（OpenQASM 3.0）",
+            "originq": "OriginQ（OriginIR）",
+        }
+        results = {}
+        for target in labels:
+            results[target] = adapter.transpile(qasm, target)
+        self._json({"ok": True, "kind": "transpile", "labels": labels, "results": results})
 
     def _json(self, obj: dict) -> None:
         body = json.dumps(obj, ensure_ascii=False).encode("utf-8")

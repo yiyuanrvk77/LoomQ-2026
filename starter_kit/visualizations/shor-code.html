@@ -1,0 +1,107 @@
+<div id="shor-code">
+  <h3>量子纠错 · 9 比特 Shor 码</h3>
+
+  <div class="viz-controls">
+    <label class="form-label" for="modeSel">错误类型</label>
+    <select id="modeSel" class="form-select">
+      <option value="x">位翻转（X）</option>
+      <option value="z">相位翻转（Z）</option>
+    </select>
+    <button type="button" class="btn" id="bRandom">随机错误</button>
+    <button type="button" class="btn btn-ghost" id="bReset">重置</button>
+  </div>
+
+  <svg id="grid" viewBox="0 0 420 360" role="img" aria-label="9 个物理比特排列成 3 行 3 列"></svg>
+
+  <div id="status" class="status" role="status" aria-live="polite">点一个比特注入错误，看校验如何定位它。</div>
+</div>
+
+<style>
+#shor-code .q { fill: var(--card); stroke: var(--border); stroke-width: 1.5; }
+#shor-code .q.err { stroke: var(--destructive); stroke-width: 3; }
+#shor-code .qstate { fill: var(--foreground); font-size: 17px; }
+#shor-code .qstate.one { fill: var(--viz-series-1); font-weight: 500; }
+#shor-code .qname { fill: var(--muted-foreground); font-size: 11px; }
+#shor-code .errmark { fill: var(--destructive); font-size: 17px; }
+#shor-code .status { color: var(--foreground); margin-top: 10px; }
+</style>
+
+<script>
+(function () {
+  var root = document.getElementById("shor-code");
+  var svg = root.querySelector("#grid");
+  var status = root.querySelector("#status");
+  var modeSel = root.querySelector("#modeSel");
+  var NS = "http://www.w3.org/2000/svg";
+
+  var mode = "x";
+  var data = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+  var errorAt = -1;
+  var xs = [90, 210, 330];
+  var ys = [80, 180, 280];
+  var stateEls = [], circEls = [], markEls = [];
+
+  for (var r = 0; r < 3; r++) {
+    for (var c = 0; c < 3; c++) {
+      var idx = r * 3 + c;
+      var g = document.createElementNS(NS, "g");
+      var circ = document.createElementNS(NS, "circle");
+      circ.setAttribute("cx", xs[c]); circ.setAttribute("cy", ys[r]); circ.setAttribute("r", 30); circ.setAttribute("class", "q");
+      var nm = document.createElementNS(NS, "text");
+      nm.setAttribute("x", xs[c]); nm.setAttribute("y", ys[r] - 38); nm.setAttribute("text-anchor", "middle"); nm.setAttribute("class", "qname"); nm.textContent = "q" + idx;
+      var st = document.createElementNS(NS, "text");
+      st.setAttribute("x", xs[c]); st.setAttribute("y", ys[r] + 6); st.setAttribute("text-anchor", "middle"); st.setAttribute("class", "qstate");
+      var mk = document.createElementNS(NS, "text");
+      mk.setAttribute("x", xs[c] + 27); mk.setAttribute("y", ys[r] - 24); mk.setAttribute("text-anchor", "middle"); mk.setAttribute("class", "errmark"); mk.textContent = "✕";
+      g.appendChild(circ); g.appendChild(nm); g.appendChild(st); g.appendChild(mk);
+      g.addEventListener("click", function () { inject(idx); });
+      svg.appendChild(g);
+      circEls.push(circ); stateEls.push(st); markEls.push(mk);
+    }
+  }
+
+  function stLabel(v) { return mode === "x" ? (v ? "|1⟩" : "|0⟩") : (v ? "|-⟩" : "|+⟩"); }
+
+  function syndromeText() {
+    var r = Math.floor(errorAt / 3), c = errorAt % 3;
+    if (mode === "x") {
+      var a = data[r * 3] ^ data[r * 3 + 1];
+      var b = data[r * 3 + 1] ^ data[r * 3 + 2];
+      var col = (a && b) ? 1 : (a ? 0 : 2);
+      return "位翻转：第 " + r + " 行校验 = (" + a + ", " + b + ")，其余两行为 00 → 出错在第 " + r + " 行第 " + col + " 列。";
+    }
+    var p0 = data[0] ^ data[1] ^ data[2];
+    var p1 = data[3] ^ data[4] ^ data[5];
+    var p2 = data[6] ^ data[7] ^ data[8];
+    var s1 = p0 ^ p1, s2 = p1 ^ p2;
+    var row = (s1 && s2) ? 1 : (s1 ? 0 : 2);
+    return "相位翻转：三块相位奇偶 = (" + p0 + ", " + p1 + ", " + p2 + ")，行间校验 = (" + s1 + ", " + s2 + ") → 出错在第 " + row + " 个块（相位码只定位到块）。";
+  }
+
+  function render() {
+    for (var i = 0; i < 9; i++) {
+      stateEls[i].textContent = stLabel(data[i]);
+      stateEls[i].classList.toggle("one", data[i] === 1);
+      circEls[i].classList.toggle("err", errorAt === i);
+      markEls[i].setAttribute("opacity", errorAt === i ? "1" : "0");
+    }
+    if (errorAt < 0) {
+      status.textContent = mode === "x"
+        ? "点一个比特注入 X（位翻转）错误，看行内两个奇偶校验如何定位它。"
+        : "点一个比特注入 Z（相位翻转）错误，看它如何只定位到「块」。";
+    } else {
+      status.textContent = syndromeText();
+    }
+  }
+
+  function inject(i) { data = [0, 0, 0, 0, 0, 0, 0, 0, 0]; data[i] = 1; errorAt = i; render(); }
+  function randomErr() { inject(Math.floor(Math.random() * 9)); }
+  function resetAll() { data = [0, 0, 0, 0, 0, 0, 0, 0, 0]; errorAt = -1; render(); }
+
+  modeSel.addEventListener("change", function () { mode = modeSel.value; resetAll(); });
+  root.querySelector("#bRandom").addEventListener("click", randomErr);
+  root.querySelector("#bReset").addEventListener("click", resetAll);
+
+  render();
+})();
+</script>

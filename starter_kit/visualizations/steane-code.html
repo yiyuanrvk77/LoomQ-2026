@@ -1,0 +1,151 @@
+<div id="steane-code">
+  <h3>CSS 码 · Steane 7 比特码（syndrome 找错游戏）</h3>
+
+  <div class="viz-controls">
+    <label class="form-label" for="modeSel">模式</label>
+    <select id="modeSel" class="form-select">
+      <option value="free">自由练习</option>
+      <option value="challenge">找错挑战</option>
+    </select>
+    <button type="button" class="btn" id="bRandom">随机出一个错误</button>
+    <button type="button" class="btn btn-ghost" id="bReset">清空</button>
+    <span id="score" class="score"></span>
+  </div>
+
+  <svg id="grid" viewBox="0 0 360 200" role="img" aria-label="7 个物理比特和 3 位 syndrome"></svg>
+
+  <div id="status" class="status" role="status" aria-live="polite">点击一个比特放置错误，下方 syndrome 会是它的二进制编号。</div>
+</div>
+
+<style>
+#steane-code .q { fill: var(--card); stroke: var(--border); stroke-width: 1.5; }
+#steane-code .q.err { stroke: var(--destructive); stroke-width: 3; }
+#steane-code .qstate { fill: var(--foreground); font-size: 15px; }
+#steane-code .qname { fill: var(--muted-foreground); font-size: 11px; }
+#steane-code .errmark { fill: var(--destructive); font-size: 16px; }
+#steane-code .sbox { fill: var(--card); stroke: var(--border); stroke-width: 1.2; }
+#steane-code .sval { fill: var(--foreground); font-size: 16px; }
+#steane-code .sval.hit { fill: var(--viz-series-1); font-weight: 500; }
+#steane-code .score { color: var(--foreground); margin-left: 8px; }
+#steane-code .status { color: var(--foreground); margin-top: 10px; }
+</style>
+
+<script>
+(function () {
+  var root = document.getElementById("steane-code");
+  var svg = root.querySelector("#grid");
+  var status = root.querySelector("#status");
+  var modeSel = root.querySelector("#modeSel");
+  var scoreEl = root.querySelector("#score");
+  var NS = "http://www.w3.org/2000/svg";
+
+  var data = [0, 0, 0, 0, 0, 0, 0];
+  var hidden = -1;
+  var answered = false;
+  var resultMsg = "";
+  var score = 0, streak = 0;
+
+  var xs = [40, 86, 132, 178, 224, 270, 316];
+  var circEls = [], stEls = [], mkEls = [], sValEls = [];
+
+  for (var i = 0; i < 7; i++) {
+    var g = document.createElementNS(NS, "g");
+    var c = document.createElementNS(NS, "circle");
+    c.setAttribute("cx", xs[i]); c.setAttribute("cy", 80); c.setAttribute("r", 25); c.setAttribute("class", "q");
+    var nm = document.createElementNS(NS, "text");
+    nm.setAttribute("x", xs[i]); nm.setAttribute("y", 40); nm.setAttribute("text-anchor", "middle"); nm.setAttribute("class", "qname"); nm.textContent = "q" + (i + 1);
+    var st = document.createElementNS(NS, "text");
+    st.setAttribute("x", xs[i]); st.setAttribute("y", 86); st.setAttribute("text-anchor", "middle"); st.setAttribute("class", "qstate"); st.textContent = "·";
+    var mk = document.createElementNS(NS, "text");
+    mk.setAttribute("x", xs[i] + 19); mk.setAttribute("y", 60); mk.setAttribute("text-anchor", "middle"); mk.setAttribute("class", "errmark"); mk.textContent = "✕";
+    g.appendChild(c); g.appendChild(nm); g.appendChild(st); g.appendChild(mk);
+    g.addEventListener("click", function () { onQubit(i); });
+    svg.appendChild(g);
+    circEls.push(c); stEls.push(st); mkEls.push(mk);
+  }
+
+  var sx = [100, 170, 240];
+  for (var j = 0; j < 3; j++) {
+    var r = document.createElementNS(NS, "rect");
+    r.setAttribute("x", sx[j] - 20); r.setAttribute("y", 135); r.setAttribute("width", 40); r.setAttribute("height", 34); r.setAttribute("rx", 6); r.setAttribute("class", "sbox");
+    var lbl = document.createElementNS(NS, "text");
+    lbl.setAttribute("x", sx[j]); lbl.setAttribute("y", 124); lbl.setAttribute("text-anchor", "middle"); lbl.setAttribute("class", "qname"); lbl.textContent = "S" + (j + 1);
+    var val = document.createElementNS(NS, "text");
+    val.setAttribute("x", sx[j]); val.setAttribute("y", 158); val.setAttribute("text-anchor", "middle"); val.setAttribute("class", "sval"); val.textContent = "0";
+    svg.appendChild(r); svg.appendChild(lbl); svg.appendChild(val);
+    sValEls.push(val);
+  }
+
+  function syndrome() {
+    return [
+      data[0] ^ data[2] ^ data[4] ^ data[6],
+      data[1] ^ data[2] ^ data[5] ^ data[6],
+      data[3] ^ data[4] ^ data[5] ^ data[6]
+    ];
+  }
+  function binToQ(s) { return s[0] * 4 + s[1] * 2 + s[2] * 1; }
+
+  function render() {
+    var s = syndrome();
+    for (var j = 0; j < 3; j++) {
+      sValEls[j].textContent = String(s[j]);
+      sValEls[j].classList.toggle("hit", s[j] === 1);
+    }
+    var mode = modeSel.value;
+    for (var i = 0; i < 7; i++) {
+      var isErr = data[i] === 1;
+      var show = mode === "free" ? isErr : (answered && isErr);
+      circEls[i].classList.toggle("err", show);
+      mkEls[i].setAttribute("opacity", show ? "1" : "0");
+      stEls[i].textContent = (mode === "free" && isErr) ? "1" : "·";
+    }
+    scoreEl.textContent = "得分 " + score + " · 连对 " + streak;
+
+    if (mode === "free") {
+      if (binToQ(s) === 0) {
+        status.textContent = "点击一个比特放置单个错误；下方 syndrome 会是它的二进制编号。";
+      } else {
+        status.textContent = "syndrome = (" + s.join("") + ") = 二进制 " + binToQ(s) + " → 出错的是 q" + binToQ(s) + "。";
+      }
+    } else if (hidden < 0) {
+      status.textContent = "点「随机出一个错误」藏一个错误，读 syndrome 猜是哪个比特。";
+    } else if (!answered) {
+      status.textContent = "syndrome = (" + s.join("") + ")。点一个比特指认错误位置。";
+    } else {
+      status.textContent = resultMsg;
+    }
+  }
+
+  function onQubit(i) {
+    var mode = modeSel.value;
+    if (mode === "free") {
+      data = [0, 0, 0, 0, 0, 0, 0]; data[i] = 1; render();
+    } else {
+      if (hidden < 0 || answered) return;
+      answered = true;
+      if (i === hidden) {
+        score++; streak++;
+        resultMsg = "✓ 答对了！q" + (i + 1) + " 就是出错的那个（syndrome=" + syndrome().join("") + "）。";
+      } else {
+        streak = 0;
+        resultMsg = "✗ 答错了，实际是 q" + (hidden + 1) + "（syndrome=" + syndrome().join("") + "）。";
+      }
+      render();
+    }
+  }
+
+  function randomErr() {
+    var i = Math.floor(Math.random() * 7);
+    data = [0, 0, 0, 0, 0, 0, 0]; data[i] = 1;
+    if (modeSel.value === "challenge") { hidden = i; answered = false; resultMsg = ""; }
+    render();
+  }
+  function clearAll() { data = [0, 0, 0, 0, 0, 0, 0]; hidden = -1; answered = false; resultMsg = ""; render(); }
+
+  modeSel.addEventListener("change", clearAll);
+  root.querySelector("#bRandom").addEventListener("click", randomErr);
+  root.querySelector("#bReset").addEventListener("click", clearAll);
+
+  render();
+})();
+</script>

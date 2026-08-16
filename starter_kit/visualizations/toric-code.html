@@ -1,0 +1,132 @@
+<div id="toric-code">
+  <h3>量子纠错 · Toric Code（二维网格）</h3>
+
+  <div class="viz-controls">
+    <button type="button" class="btn" id="bRandom">随机放一个错误</button>
+    <button type="button" class="btn btn-ghost" id="bReset">重置</button>
+  </div>
+
+  <svg id="grid" viewBox="0 0 364 364" role="img" aria-label="二维网格纠错码：比特在网格线上，出错时相邻格子亮起"></svg>
+
+  <div id="status" class="status" role="status" aria-live="polite">点击网格线（比特）放一个 X 错误；相邻的格子会亮起，表示测到了奇偶异常。</div>
+</div>
+
+<style>
+#toric-code .plaq { stroke: var(--border); stroke-width: 1; }
+#toric-code .edge { stroke: var(--border); stroke-width: 2.5; }
+#toric-code .errmark { fill: var(--destructive); font-size: 18px; opacity: 0; }
+#toric-code .status { color: var(--foreground); margin-top: 10px; }
+</style>
+
+<script>
+(function () {
+  var root = document.getElementById("toric-code");
+  var svg = root.querySelector("#grid");
+  var status = root.querySelector("#status");
+  var NS = "http://www.w3.org/2000/svg";
+  var L = 4, cell = 76, x0 = 30, y0 = 30;
+
+  var errors = {};
+  var edgeObjs = {};
+  var plaqObjs = {};
+
+  function pkey(i, j) { return i + "," + j; }
+
+  for (var i = 0; i < L; i++) {
+    for (var j = 0; j < L; j++) {
+      var r = document.createElementNS(NS, "rect");
+      r.setAttribute("x", x0 + j * cell);
+      r.setAttribute("y", y0 + i * cell);
+      r.setAttribute("width", cell);
+      r.setAttribute("height", cell);
+      r.setAttribute("class", "plaq");
+      svg.appendChild(r);
+      plaqObjs[pkey(i, j)] = r;
+    }
+  }
+
+  function addEdge(kind, a, b, x1, y1, x2, y2, adj) {
+    var key = kind + a + "_" + b;
+    var g = document.createElementNS(NS, "g");
+    var hit = document.createElementNS(NS, "line");
+    hit.setAttribute("x1", x1); hit.setAttribute("y1", y1);
+    hit.setAttribute("x2", x2); hit.setAttribute("y2", y2);
+    hit.setAttribute("stroke", "transparent"); hit.setAttribute("stroke-width", "20");
+    hit.setAttribute("pointer-events", "stroke"); hit.setAttribute("style", "cursor:pointer");
+    var ln = document.createElementNS(NS, "line");
+    ln.setAttribute("x1", x1); ln.setAttribute("y1", y1);
+    ln.setAttribute("x2", x2); ln.setAttribute("y2", y2);
+    ln.setAttribute("class", "edge");
+    var mk = document.createElementNS(NS, "text");
+    mk.setAttribute("x", (x1 + x2) / 2); mk.setAttribute("y", (y1 + y2) / 2);
+    mk.setAttribute("text-anchor", "middle"); mk.setAttribute("dominant-baseline", "central");
+    mk.setAttribute("class", "errmark"); mk.textContent = "✕";
+    g.appendChild(hit); g.appendChild(ln); g.appendChild(mk);
+    g.addEventListener("click", function () { toggle(key); });
+    svg.appendChild(g);
+    edgeObjs[key] = { adj: adj, mark: mk };
+  }
+
+  for (var r = 0; r <= L; r++) {
+    for (var c = 0; c < L; c++) {
+      var adj = [];
+      if (r < L) adj.push(pkey(r, c));
+      if (r > 0) adj.push(pkey(r - 1, c));
+      addEdge("H", r, c, x0 + c * cell, y0 + r * cell, x0 + (c + 1) * cell, y0 + r * cell, adj);
+    }
+  }
+  for (var r2 = 0; r2 < L; r2++) {
+    for (var c2 = 0; c2 <= L; c2++) {
+      var adj2 = [];
+      if (c2 < L) adj2.push(pkey(r2, c2));
+      if (c2 > 0) adj2.push(pkey(r2, c2 - 1));
+      addEdge("V", r2, c2, x0 + c2 * cell, y0 + r2 * cell, x0 + c2 * cell, y0 + (r2 + 1) * cell, adj2);
+    }
+  }
+
+  function toggle(key) {
+    if (errors[key]) { delete errors[key]; } else { errors[key] = true; }
+    render();
+  }
+
+  function render() {
+    var par = {};
+    for (var k in errors) {
+      edgeObjs[k].adj.forEach(function (p) { par[p] = (par[p] || 0) ^ 1; });
+    }
+    var lit = [];
+    for (var p in par) { if (par[p]) { lit.push(p); } }
+    for (var p2 in plaqObjs) {
+      plaqObjs[p2].setAttribute("fill", par[p2] ? "var(--destructive)" : "transparent");
+      plaqObjs[p2].setAttribute("fill-opacity", par[p2] ? "0.22" : "0");
+    }
+    for (var k2 in edgeObjs) {
+      edgeObjs[k2].mark.setAttribute("opacity", errors[k2] ? "1" : "0");
+    }
+    if (lit.length === 0) {
+      status.textContent = "点击网格线（比特）放一个 X 错误；相邻的格子会亮起，表示测到了奇偶异常。";
+    } else if (lit.length === 2) {
+      status.textContent = "点亮了 2 个格子 —— 一对 anyon，正是这条错误的两端。";
+    } else if (lit.length === 1) {
+      status.textContent = "点亮了 1 个格子 —— 错误串的一端碰到了边界。";
+    } else {
+      status.textContent = "点亮了 " + lit.length + " 个格子。试着连点相邻的边，观察亮起的位置怎么变。";
+    }
+  }
+
+  function resetAll() { errors = {}; render(); }
+  function randomOne() {
+    var keys = Object.keys(edgeObjs);
+    var interior = keys.filter(function (k) { return edgeObjs[k].adj.length === 2; });
+    var pool = interior.length ? interior : keys;
+    errors = {};
+    errors[pool[Math.floor(Math.random() * pool.length)]] = true;
+    render();
+  }
+
+  root.querySelector("#bRandom").addEventListener("click", randomOne);
+  root.querySelector("#bReset").addEventListener("click", resetAll);
+
+  render();
+})();
+</script>

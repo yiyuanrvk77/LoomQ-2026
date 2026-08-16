@@ -58,12 +58,31 @@ def _extract_qasm(text: str) -> str | None:
     return m.group(0).strip() if m else None
 
 
+def _describe_error(exc: Exception) -> str:
+    """把底层异常翻译成对模型更有指导意义的中文提示。"""
+    msg = str(exc)
+    name = type(exc).__name__
+    hints = []
+    if "unexpected character" in msg or "unexpected token" in msg:
+        hints.append("QASM 里有非法字符或无法解析的符号（检查标点、拼写和门名）")
+    if "expected" in msg and "got" in msg:
+        hints.append("语句结构不完整或顺序不对（检查声明、分号、括号配对）")
+    if "out of range" in msg or "index" in msg.lower():
+        hints.append("引用了不存在的量子比特或经典比特（q[n]/c[n] 越界）")
+    if "unknown" in msg.lower() or "unsupported" in msg.lower():
+        hints.append("使用了不在 12 门白名单里的门或语法")
+    if "measure" in msg.lower():
+        hints.append("measure 语法有误（应为 measure q[i] -> c[j];）")
+    detail = "；".join(hints) if hints else name
+    return detail + "。原始错误：" + msg
+
+
 def _validate(qasm: str) -> str | None:
     try:
         simulate(parse(qasm), 16)
         return None
     except Exception as exc:  # noqa: BLE001
-        return "%s: %s" % (type(exc).__name__, exc)
+        return _describe_error(exc)
 
 
 def _extract_backend_id(text: str) -> str | None:
