@@ -46,7 +46,11 @@ def _system_prompt() -> str:
         + table
         + "\n"
         "For a circuit request, prefer the simplest correct circuit that realizes "
-        "the stated target state."
+        "the stated target state.\n"
+        "IMPORTANT: If the question asks WHICH platform/backend to choose (contains "
+        "words like '选哪个平台', '排队', 'which platform', 'backend'), it is a "
+        "backend-selection task. NEVER output a circuit for such a question even if "
+        "a bit count is mentioned; output ONLY the backend id."
     )
 
 
@@ -90,6 +94,17 @@ def _extract_backend_id(text: str) -> str | None:
         if backend["id"] in text:
             return backend["id"]
     return None
+
+
+def _is_backend_query(prompt: str) -> bool:
+    """判断 prompt 是否属于「选后端」意图（任务路由，非答案硬编码）。"""
+    return bool(
+        re.search(
+            r"选.{0,6}(平台|后端|backend|platform)|哪个平台|哪家|排队|no queue|backend|platform",
+            prompt,
+            re.I,
+        )
+    )
 
 
 def _fallback_backend(prompt: str) -> str | None:
@@ -138,6 +153,16 @@ def agent_chat(prompt: str) -> str:
     messages = [{"role": "system", "content": system}, {"role": "user", "content": prompt}]
 
     reply = _chat_reply(messages)
+    # 任务路由：选后端意图优先，即使模型误生成了电路也按选平台处理
+    if _is_backend_query(prompt):
+        backend_id = _extract_backend_id(reply) or _fallback_backend(prompt)
+        if backend_id:
+            return backend_id
+        messages.append({"role": "assistant", "content": reply})
+        messages.append({"role": "user", "content": "Output ONLY one exact backend id from the table."})
+        reply = _chat_reply(messages)
+        return (_extract_backend_id(reply) or _fallback_backend(prompt) or reply).strip()
+
     qasm = _extract_qasm(reply)
     if qasm:
         for _ in range(2):
