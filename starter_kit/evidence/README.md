@@ -40,6 +40,6 @@
 
 - [x] 首次运行引导位置：web_demo.py 网页内提示语 + starter_kit/QUANTUM_101.md
 - [x] 概念解释位置：QUANTUM_101.md（30 分钟速成）
-- [x] 结果可视化位置：web_demo.py 的测量结果条形图 + outputs/可视化/ 下 4 个纠错可视化
+- [x] 结果可视化位置：web_demo.py 的电路图 + 测量条形图 + 三平台翻译对比；`starter_kit/visualizations/` 里 4 个纠错可视化（`index.html` 学习路径入口）
 - [x] 错误恢复 / 无障碍引导位置：web_demo.py 缺 key 时给出明确中文提示；agent 生成失败自动重试并说明原因
 - [ ] 附件：对应截图
