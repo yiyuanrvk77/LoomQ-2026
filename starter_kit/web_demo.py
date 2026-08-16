@@ -42,6 +42,42 @@ def load_dotenv() -> None:
             os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
 
 
+def _circuit_diagram(qasm: str) -> dict:
+    """把 QASM 解析成前端可渲染的电路图数据。"""
+    circuit = adapter.parse(qasm)
+    gates = []
+    for gate in circuit.gates:
+        gates.append(
+            {
+                "name": gate.name,
+                "qubits": list(gate.qubits),
+                "params": [round(float(p), 4) for p in gate.params],
+            }
+        )
+    for qubit, _clbit in circuit.measures:
+        gates.append({"name": "measure", "qubits": [qubit]})
+    return {"num_qubits": circuit.num_qubits, "gates": gates}
+
+
+def _load_real_bell() -> dict | None:
+    """读取真机 Bell 态实测结果（若无则返回 None），用于展示真实噪声。"""
+    path = Path(__file__).parent / "evidence" / "files" / "spinq_gemini_bell.json"
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    probs = data.get("probabilities") or data.get("counts")
+    if not probs:
+        return None
+    # 归一化为概率（counts 是整数时除以总和）
+    total = sum(probs.values())
+    if total > 1.5:  # 是 counts
+        return {k: v / total for k, v in probs.items()}
+    return dict(probs)
+
+
 HTML = """<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -62,6 +98,19 @@ HTML = """<!doctype html>
   .bar-val { width: 110px; font-size: 13px; color: #555; margin-left: 8px; }
   .error { color: #b91c1c; }
   .hint { color: #777; font-size: 13px; }
+  .circuit { background: #fafafa; border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px; overflow-x: auto; }
+  .circuit-row { display: flex; align-items: center; height: 30px; white-space: nowrap; }
+  .circuit-q { width: 34px; font-family: monospace; color: #666; flex: none; }
+  .circuit-gate { display: inline-block; min-width: 24px; padding: 2px 5px; margin: 0 3px; text-align: center; border: 1px solid #334155; border-radius: 3px; background: #fff; font-family: monospace; font-size: 12px; }
+  .circuit-space { display: inline-block; width: 24px; }
+  .compare { margin-top: 8px; }
+  .cmp-row { display: flex; align-items: center; margin: 3px 0; }
+  .cmp-key { width: 60px; font-family: monospace; }
+  .cmp-track { flex: 1; height: 8px; background: #eee; border-radius: 2px; margin: 0 6px; position: relative; }
+  .cmp-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; }
+  .cmp-val { width: 76px; font-size: 12px; color: #555; }
+  .legend { margin-top: 6px; font-size: 12px; color: #555; }
+  .legend span { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 3px; vertical-align: middle; }
 </style>
 </head>
 <body>
@@ -89,14 +138,69 @@ HTML = """<!doctype html>
       el.innerHTML = '<p>' + escapeHtml(data.answer) + '</p>';
       return;
     }
-    var html = '<p class="hint">已生成电路（OpenQASM 2.0）：</p><pre>' + escapeHtml(data.qasm) + '</pre>';
-    html += '<p class="hint">测量结果分布（shots=' + data.shots + '）：</p>';
-    Object.keys(data.counts).forEach(function (k) {
-      var v = data.counts[k];
-      var pct = Math.round(100 * v / data.shots);
-      html += '<div class="bar-row"><span class="bar-key">' + k + '</span><div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div><span class="bar-val">' + v + ' (' + pct + '%)</span></div>';
-    });
+    var html = '<p class="hint">电路图：</p>' + renderCircuit(data);
+    html += '<p class="hint">已生成电路（OpenQASM 2.0）：</p><pre>' + escapeHtml(data.qasm) + '</pre>';
+    html += renderCompare(data);
     el.innerHTML = html;
+  }
+
+  function gateLabel(g) {
+    if (g.name === 'measure') { return 'M'; }
+    var label = g.name.toUpperCase();
+    if (g.params && g.params.length) { label += '(' + g.params.join(', ') + ')'; }
+    return label;
+  }
+
+  function renderCircuit(data) {
+    var rows = [];
+    for (var i = 0; i < data.num_qubits; i++) { rows.push([]); }
+    data.gates.forEach(function (g) {
+      var qs = g.qubits;
+      if (qs.length === 1) {
+        rows[qs[0]].push(gateLabel(g));
+      } else {
+        qs.forEach(function (q, idx) {
+          var mark = (g.name === 'cx' || g.name === 'ccx')
+            ? (idx === qs.length - 1 ? '⊕' : '●')
+            : gateLabel(g);
+          rows[q].push(mark);
+        });
+      }
+    });
+    var html = '<div class="circuit">';
+    rows.forEach(function (row, i) {
+      html += '<div class="circuit-row"><span class="circuit-q">q' + i + '</span>';
+      row.forEach(function (label) {
+        html += '<span class="circuit-gate">' + escapeHtml(label) + '</span>';
+      });
+      html += '</div>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  function renderCompare(data) {
+    var keys = {};
+    Object.keys(data.ideal || {}).forEach(function (k) { keys[k] = true; });
+    Object.keys(data.counts || {}).forEach(function (k) { keys[k] = true; });
+    if (data.real) { Object.keys(data.real).forEach(function (k) { keys[k] = true; }); }
+    var html = '<div class="compare"><p class="hint">概率对比（理想 / 实测 / 真机）：</p>';
+    Object.keys(keys).sort().forEach(function (key) {
+      html += '<div class="cmp-row"><span class="cmp-key">' + key + '</span>';
+      var iv = data.ideal ? (data.ideal[key] || 0) : 0;
+      var cv = data.counts ? (data.counts[key] || 0) / data.shots : 0;
+      var rv = data.real ? (data.real[key] || 0) : 0;
+      html += cmpBar(iv, '#94a3b8') + cmpBar(cv, '#2563eb') + cmpBar(rv, '#dc2626');
+      html += '</div>';
+    });
+    html += '<div class="legend"><span style="background:#94a3b8"></span>理想（无噪声） <span style="background:#2563eb"></span>实测采样 <span style="background:#dc2626"></span>真机（SpinQ Gemini）</div>';
+    html += '</div>';
+    return html;
+  }
+
+  function cmpBar(prob, color) {
+    var pct = Math.round(prob * 1000) / 10;
+    return '<div class="cmp-track"><div class="cmp-fill" style="width:' + Math.min(100, pct) + '%;background:' + color + '"></div></div><span class="cmp-val">' + pct.toFixed(1) + '%</span>';
   }
 
   function escapeHtml(s) {
@@ -128,6 +232,16 @@ class Handler(BaseHTTPRequestHandler):
             reply = adapter.agent_chat(prompt)
             if "OPENQASM" in reply:
                 result = adapter.run(reply, "braket", 1024)
+                circuit = adapter.parse(reply)
+                ideal = adapter.probabilities(circuit)
+                diagram = _circuit_diagram(reply)
+                # 仅当是 2 比特 Bell 态时，附上真机实测噪声对比
+                is_bell = (
+                    diagram["num_qubits"] == 2
+                    and len(circuit.gates) == 2
+                    and sorted(g.name for g in circuit.gates) == ["cx", "h"]
+                )
+                real = _load_real_bell() if is_bell else None
                 self._json(
                     {
                         "ok": True,
@@ -135,6 +249,10 @@ class Handler(BaseHTTPRequestHandler):
                         "qasm": reply,
                         "counts": result["counts"],
                         "shots": result["shots"],
+                        "ideal": ideal,
+                        "gates": diagram["gates"],
+                        "num_qubits": diagram["num_qubits"],
+                        "real": real,
                     }
                 )
             else:
@@ -173,4 +291,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
