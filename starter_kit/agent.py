@@ -13,6 +13,63 @@ except ImportError:  # 脚本方式直接运行时无包上下文
     from qasm_parser import parse
     from simulator import simulate
 
+# 量子概念知识库：概念 -> 一句话解释 + 可运行电路（三本书发散三的轻量版）
+_CONCEPTS = [
+    {
+        "name": "贝尔态",
+        "keywords": ["bell", "贝尔", "epr", "爱因斯坦"],
+        "explain": "贝尔态是两个量子比特的最大纠缠态：测量时两个比特总是相同（00 或 11，各一半）。它是量子纠缠、隐形传态、超密编码的基石。",
+        "qasm": 'OPENQASM 2.0;\ninclude "qelib1.inc";\nqreg q[2];\ncreg c[2];\nh q[0];\ncx q[0],q[1];\nmeasure q[0] -> c[0];\nmeasure q[1] -> c[1];',
+    },
+    {
+        "name": "GHZ 态",
+        "keywords": ["ghz", "格林伯格", "greenberger"],
+        "explain": "GHZ 态是三个（及以上）量子比特的最大纠缠态，是量子非局域性实验的经典载体。",
+        "qasm": 'OPENQASM 2.0;\ninclude "qelib1.inc";\nqreg q[3];\ncreg c[3];\nh q[0];\ncx q[0],q[1];\ncx q[1],q[2];\nmeasure q[0] -> c[0];\nmeasure q[1] -> c[1];\nmeasure q[2] -> c[2];',
+    },
+    {
+        "name": "量子叠加",
+        "keywords": ["叠加", "superposition"],
+        "explain": "叠加是量子比特同时处于 |0⟩ 和 |1⟩ 的能力。H 门把 |0⟩ 变成 (|0⟩+|1⟩)/√2，测量时才坍缩到其中一个。",
+        "qasm": 'OPENQASM 2.0;\ninclude "qelib1.inc";\nqreg q[1];\ncreg c[1];\nh q[0];\nmeasure q[0] -> c[0];',
+    },
+    {
+        "name": "量子纠缠",
+        "keywords": ["纠缠", "entangle"],
+        "explain": "纠缠是两个量子比特的关联强到无法用经典比特解释的现象。贝尔态是最简单的纠缠态：测一个比特，另一个立刻确定。",
+        "qasm": 'OPENQASM 2.0;\ninclude "qelib1.inc";\nqreg q[2];\ncreg c[2];\nh q[0];\ncx q[0],q[1];\nmeasure q[0] -> c[0];\nmeasure q[1] -> c[1];',
+    },
+    {
+        "name": "量子测量",
+        "keywords": ["测量", "measure", "观测"],
+        "explain": "测量把量子叠加态坍缩到确定态。测量前叠加态在 |0⟩ 和 |1⟩ 各有概率，测量后只剩一个确定结果。",
+        "qasm": 'OPENQASM 2.0;\ninclude "qelib1.inc";\nqreg q[1];\ncreg c[1];\nh q[0];\nmeasure q[0] -> c[0];',
+    },
+    {
+        "name": "量子退相干",
+        "keywords": ["退相干", "decoherence", "噪声", "noise", "误差"],
+        "explain": "退相干是量子态与环境相互作用而丧失量子特性的过程，是真机结果不如理想模拟器的根本原因——叠加态最容易被噪声抹掉。",
+        "qasm": 'OPENQASM 2.0;\ninclude "qelib1.inc";\nqreg q[1];\ncreg c[1];\nh q[0];\nmeasure q[0] -> c[0];',
+    },
+]
+
+
+def _match_concept(prompt: str) -> dict | None:
+    """判断 prompt 是否在问量子概念（教育问答，非 L2 三大评测任务）。"""
+    if not re.search(
+        r"什么是|是什么|啥是|啥叫|解释|讲讲|科普|介绍|meaning|what is|explain",
+        prompt,
+        re.I,
+    ):
+        return None
+    low = prompt.lower()
+    for concept in _CONCEPTS:
+        for keyword in concept["keywords"]:
+            if keyword.lower() in low:
+                return concept
+    return None
+
+
 def _chat_reply(messages: list[dict]) -> str:
     """调用官方 llm_client 做一次补全，返回 assistant 文本。"""
     return llm_client.chat_completion(messages)["choices"][0]["message"]["content"]
@@ -149,6 +206,11 @@ def _fallback_backend(prompt: str) -> str | None:
 
 
 def agent_chat(prompt: str) -> str:
+    # 概念问答（教育功能）：问「什么是 X」直接返回解释 + 可运行电路，不调模型
+    concept = _match_concept(prompt)
+    if concept:
+        return concept["explain"] + "\n\n可运行电路（复制到 LoomQ 即可跑）：\n" + concept["qasm"]
+
     system = _system_prompt()
     messages = [{"role": "system", "content": system}, {"role": "user", "content": prompt}]
 
