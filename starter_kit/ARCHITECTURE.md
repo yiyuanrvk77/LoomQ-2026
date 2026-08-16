@@ -13,8 +13,9 @@
 3. **转译层（`transpiler.py`）**：IR 分别输出 SpinQ（OpenQASM 2.0）、Braket（OpenQASM 3）、
    OriginQ（OriginIR），并统一位序为 little-endian。
 4. **智能体层（`agent.py`）**：`agent_chat` 读 `LOOMQ_LLM_*` **真实调用模型**（无 mock 兜底），
-   用「生成 → L1 自验 → 重试」闭环保证输出可运行；后端选型**以模型输出为主**，仅当模型未
-   返回规范后端标识时，才按官方 `backend_capabilities.json` 做约束筛选兜底，而非关键词硬编码答案。
+   用「生成 → L1 自验 → 重试」闭环保证输出可运行；后端选型先从官方 `backend_capabilities.json`
+   算出满足约束的候选集，再校验模型推荐是否落在候选集内——候选集为空时明确返回「无解」，
+   绝不接受表内但不满足约束的 ID，也非关键词硬编码答案。
 5. **混合编译层（`hybrid.py`）**：手写词法分析器 + 递归下降解析器，把 Hybrid-QASM 经典块解析为
    AST 再生成 RISC-V 汇编；对任意符合文法的输入通用处理，非针对样例打表。
 

@@ -64,15 +64,16 @@ def run(qasm_str: str, target: str, shots: int) -> Dict[str, Any]:
         "depth": _circuit_depth(circuit),
         "source": "native",
     }
+    native_job_id = None
     try:
-        counts = run_real(qasm_str, target, shots)
+        counts, native_job_id = run_real(qasm_str, target, shots)
     except Exception as exc:  # noqa: BLE001 - SDK missing/unavailable -> 显式回退并记录原因
         counts = simulate(circuit, shots)
         meta["source"] = "internal_simulator_fallback"
         meta["fallback_reason"] = "%s: %s" % (type(exc).__name__, exc)
     return {
         "backend": _BACKEND_IDS[target],
-        "job_id": uuid.uuid4().hex,
+        "job_id": native_job_id or uuid.uuid4().hex,
         "shots": shots,
         "counts": counts,
         "bit_order": "little",

@@ -490,12 +490,57 @@ classical { if (c[0] == 1) { r1 = 7; } else { r1 = 3; } }
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
+        # 静态文件：量子纠错可视化实验室（visualizations/*.html）
+        if self.path.startswith("/visualizations/"):
+            self._serve_visualization(self.path)
+            return
+        # 可视化页里「回 QUANTUM_101」等文档链接
+        if self.path.startswith("/QUANTUM_101.md"):
+            self._serve_doc("QUANTUM_101.md")
+            return
+        if self.path.startswith("/ARCHITECTURE.md"):
+            self._serve_doc("ARCHITECTURE.md")
+            return
         body = HTML.encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def _serve_visualization(self, url_path: str) -> None:
+        filename = url_path[len("/visualizations/"):].split("?")[0].split("#")[0]
+        # 只允许单个文件名，禁止子路径与路径穿越
+        if not filename or "/" in filename or "\\" in filename or ".." in filename:
+            self._send_plain(404, "Not Found")
+            return
+        file = Path(__file__).parent / "visualizations" / filename
+        if not file.is_file():
+            self._send_plain(404, "Not Found")
+            return
+        content_type = (
+            "text/html; charset=utf-8"
+            if file.suffix == ".html"
+            else "text/plain; charset=utf-8"
+        )
+        self._send_bytes(200, content_type, file.read_bytes())
+
+    def _serve_doc(self, filename: str) -> None:
+        file = Path(__file__).parent / filename
+        if not file.is_file():
+            self._send_plain(404, "Not Found")
+            return
+        self._send_bytes(200, "text/plain; charset=utf-8", file.read_bytes())
+
+    def _send_bytes(self, code: int, content_type: str, body: bytes) -> None:
+        self.send_response(code)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _send_plain(self, code: int, text: str) -> None:
+        self._send_bytes(code, "text/plain; charset=utf-8", text.encode("utf-8"))
 
     def do_POST(self) -> None:
         length = int(self.headers.get("Content-Length", "0"))
