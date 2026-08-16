@@ -78,6 +78,21 @@ def _load_real_bell() -> dict | None:
     return dict(probs)
 
 
+def _circuit_summary(circuit) -> str:
+    """根据电路结构给一句零基础用户能懂的大白话解读。"""
+    names = [g.name for g in circuit.gates]
+    n = circuit.num_qubits
+    if n == 2 and sorted(names) == ["cx", "h"]:
+        return "这是「贝尔态」：两个比特总是同时为 0、或同时为 1——这就是量子纠缠。真机因为噪声，会有约 10% 的偏差（看红色那组）。"
+    if names and names[0] == "h" and len(names) >= 2 and all(x == "cx" for x in names[1:]):
+        return "这是「GHZ 纠缠态」：所有比特的测量结果总是全同（要么全 0、要么全 1），是比贝尔态更「长」的纠缠链。"
+    if n == 1 and names == ["h"]:
+        return "这是「叠加态」：一个比特同时处于 0 和 1 两种状态，测量那一刻才随机坍缩成其中一个。"
+    if not names:
+        return "这个电路没有量子门，测量结果是确定态。"
+    return "这是你生成的量子电路：每一根柱子代表某个测量结果出现的概率。"
+
+
 HTML = """<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -98,6 +113,11 @@ HTML = """<!doctype html>
   .bar-val { width: 110px; font-size: 13px; color: #555; margin-left: 8px; }
   .error { color: #b91c1c; }
   .hint { color: #777; font-size: 13px; }
+  .guide { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 14px 16px; margin: 14px 0; font-size: 14px; line-height: 1.7; }
+  .guide ol { margin: 8px 0 0; padding-left: 20px; }
+  .guide a { color: #2563eb; }
+  #quantum-field { width: 100%; height: 200px; display: block; background: radial-gradient(ellipse at center, #101b33 0%, #060a14 70%); border-radius: 10px; cursor: crosshair; }
+  .field-label { position: relative; color: #7dd3fc; font-size: 12px; letter-spacing: 2px; margin-top: 6px; text-align: center; }
   .circuit { background: #fafafa; border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px; overflow-x: auto; }
   .circuit-row { display: flex; align-items: center; height: 30px; white-space: nowrap; }
   .circuit-q { width: 34px; font-family: monospace; color: #666; flex: none; }
@@ -114,8 +134,18 @@ HTML = """<!doctype html>
 </style>
 </head>
 <body>
+  <canvas id="quantum-field"></canvas>
+  <p class="field-label">粒子 = 量子比特 · 连线 = 纠缠 · 鼠标靠近 = 测量扰动</p>
   <h1>LoomQ · 说一句话，指挥量子计算</h1>
   <p class="hint">试试：生成一个 3 比特的 GHZ 纠缠态并全测量；或：15 比特零排队免费选哪个平台？</p>
+  <div class="guide">
+    <b>三步玩懂量子计算（零基础也能玩）：</b>
+    <ol>
+      <li>点下面一个<b>算法按钮</b>（比如 GHZ-3），看电路怎么跑、结果长什么样</li>
+      <li>在下方「问个概念」里输入「什么是纠缠」，看解释 + 能跑的电路</li>
+      <li>打开 <a href="visualizations/index.html" target="_blank">纠错实验室</a>，亲手放一个错误看它被抓住</li>
+    </ol>
+  </div>
   <textarea id="prompt" placeholder="在这里输入你想做的事……"></textarea>
   <br><button id="go">生成 / 运行</button>
   <span class="hint" style="margin-left:10px;">快捷算法：</span>
@@ -123,6 +153,12 @@ HTML = """<!doctype html>
   <button class="preset" data-name="grover3" style="background:#475569;">Grover-3</button>
   <button class="preset" data-name="qft4" style="background:#475569;">QFT-4</button>
   <div id="result"></div>
+  <hr style="margin:28px 0;border:0;border-top:1px solid #e5e7eb;">
+  <h2 style="font-size:1.2em;">问个概念 · 不懂就问我</h2>
+  <p class="hint">试试：什么是贝尔态 / 什么是量子叠加 / 解释一下退相干</p>
+  <textarea id="concept-input" placeholder="问一个量子概念……"></textarea>
+  <br><button id="concept-btn">问概念</button>
+  <div id="concept-result"></div>
   <hr style="margin:28px 0;border:0;border-top:1px solid #e5e7eb;">
   <h2 style="font-size:1.2em;">翻译官 · 同一电路的三家方言</h2>
   <p class="hint">展示 LoomQ 中间层如何把一份 OpenQASM 2.0 翻译成三家后端各自的格式。</p>
@@ -150,6 +186,141 @@ classical { if (c[0] == 1) { r1 = 7; } else { r1 = 3; } }
   <br><button id="compile-btn">编译</button>
   <div id="compile-result"></div>
 <script>
+  (function () {
+    var canvas = document.getElementById('quantum-field');
+    var ctx = canvas.getContext('2d');
+    var particles = [];
+    var mouse = { x: -9999, y: -9999, active: false };
+    var w = 0, h = 0, dpr = 1;
+    var highlight = [];
+    var highlightUntil = 0;
+
+    function resize() {
+      dpr = window.devicePixelRatio || 1;
+      w = canvas.clientWidth;
+      h = canvas.clientHeight;
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function spawn() {
+      particles = [];
+      var count = Math.max(20, Math.min(44, Math.round(w * h / 4000)));
+      for (var i = 0; i < count; i++) {
+        particles.push({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          vx: (Math.random() - 0.5) * 0.35,
+          vy: (Math.random() - 0.5) * 0.35,
+          r: 1.2 + Math.random() * 2.1,
+          phase: Math.random() * Math.PI * 2,
+          glow: 0.45 + Math.random() * 0.55
+        });
+      }
+    }
+
+    function isHighlighted(i) {
+      return highlight.indexOf(i) !== -1 && Date.now() < highlightUntil;
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, w, h);
+      var i, j, p, q, dx, dy, dist;
+
+      for (i = 0; i < particles.length; i++) {
+        p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        if (mouse.active) {
+          dx = p.x - mouse.x;
+          dy = p.y - mouse.y;
+          dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 90 && dist > 0.001) {
+            var force = (90 - dist) / 90;
+            p.x += (dx / dist) * force * 3.2;
+            p.y += (dy / dist) * force * 3.2;
+          }
+        }
+        if (p.x < -24) p.x = w + 24; else if (p.x > w + 24) p.x = -24;
+        if (p.y < -24) p.y = h + 24; else if (p.y > h + 24) p.y = -24;
+        p.phase += 0.035;
+      }
+
+      ctx.lineWidth = 0.6;
+      for (i = 0; i < particles.length; i++) {
+        for (j = i + 1; j < particles.length; j++) {
+          p = particles[i]; q = particles[j];
+          dx = p.x - q.x; dy = p.y - q.y;
+          dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 96) {
+            var base = (1 - dist / 96) * 0.30;
+            if (isHighlighted(i) && isHighlighted(j)) { base = (1 - dist / 96) * 0.75 + 0.15; }
+            ctx.strokeStyle = 'rgba(125, 211, 252, ' + base.toFixed(3) + ')';
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(q.x, q.y);
+            ctx.stroke();
+          }
+        }
+      }
+
+      for (i = 0; i < particles.length; i++) {
+        p = particles[i];
+        var pulse = 0.6 + 0.4 * Math.sin(p.phase);
+        var on = isHighlighted(i);
+        var color = on ? '103, 232, 249' : '125, 211, 252';
+        var alpha = p.glow * pulse * (on ? 1.25 : 1);
+        var halo = p.r * (on ? 5 : 4);
+        var grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, halo);
+        grad.addColorStop(0, 'rgba(' + color + ', ' + Math.min(1, alpha).toFixed(3) + ')');
+        grad.addColorStop(1, 'rgba(' + color + ', 0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, halo, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(224, 242, 254, ' + Math.min(1, alpha + 0.25).toFixed(3) + ')';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    canvas.addEventListener('mousemove', function (e) {
+      var rect = canvas.getBoundingClientRect();
+      mouse.x = e.clientX - rect.left;
+      mouse.y = e.clientY - rect.top;
+      mouse.active = true;
+    });
+    canvas.addEventListener('mouseleave', function () { mouse.active = false; });
+    canvas.addEventListener('touchmove', function (e) {
+      e.preventDefault();
+      var rect = canvas.getBoundingClientRect();
+      var t = e.touches[0];
+      mouse.x = t.clientX - rect.left;
+      mouse.y = t.clientY - rect.top;
+      mouse.active = true;
+    }, { passive: false });
+    canvas.addEventListener('touchend', function () { mouse.active = false; });
+
+    window.setQuantumField = function (n) {
+      n = Math.max(1, Math.min(n || 1, particles.length));
+      highlight = [];
+      while (highlight.length < n) {
+        var idx = Math.floor(Math.random() * particles.length);
+        if (highlight.indexOf(idx) === -1) { highlight.push(idx); }
+      }
+      highlightUntil = Date.now() + 7000;
+    };
+
+    window.addEventListener('resize', function () { resize(); spawn(); });
+    resize();
+    spawn();
+    draw();
+  })();
+
   document.getElementById('go').addEventListener('click', function () {
     var prompt = document.getElementById('prompt').value.trim();
     var result = document.getElementById('result');
@@ -195,6 +366,17 @@ classical { if (c[0] == 1) { r1 = 7; } else { r1 = 3; } }
       .catch(function (e) { el.innerHTML = '<p class="error">编译失败：' + e + '</p>'; });
   });
 
+  document.getElementById('concept-btn').addEventListener('click', function () {
+    var q = document.getElementById('concept-input').value.trim();
+    var el = document.getElementById('concept-result');
+    if (!q) { el.innerHTML = '<p class="error">请输入想了解的概念。</p>'; return; }
+    el.innerHTML = '<p>正在查询……</p>';
+    fetch('/concept', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ q: q }) })
+      .then(function (r) { return r.json(); })
+      .then(function (data) { renderConcept(data); })
+      .catch(function (e) { el.innerHTML = '<p class="error">查询失败：' + e + '</p>'; });
+  });
+
   function render(data) {
     var el = document.getElementById('result');
     if (!data.ok) { el.innerHTML = '<p class="error">' + escapeHtml(data.error) + '</p>'; return; }
@@ -203,9 +385,11 @@ classical { if (c[0] == 1) { r1 = 7; } else { r1 = 3; } }
       return;
     }
     var html = '<p class="hint">电路图：</p>' + renderCircuit(data);
+    if (data.summary) { html += '<div class="guide">' + escapeHtml(data.summary) + '</div>'; }
     html += '<p class="hint">已生成电路（OpenQASM 2.0）：</p><pre>' + escapeHtml(data.qasm) + '</pre>';
     html += renderCompare(data);
     el.innerHTML = html;
+    if (window.setQuantumField) { window.setQuantumField(data.num_qubits); }
   }
 
   function gateLabel(g) {
@@ -287,6 +471,14 @@ classical { if (c[0] == 1) { r1 = 7; } else { r1 = 3; } }
     el.innerHTML = html;
   }
 
+  function renderConcept(data) {
+    var el = document.getElementById('concept-result');
+    if (!data.ok) { el.innerHTML = '<p class="error">' + escapeHtml(data.error) + '</p>'; return; }
+    var html = '<p><b>' + escapeHtml(data.name) + '</b>：' + escapeHtml(data.explain) + '</p>';
+    html += '<p class="hint">可运行电路（复制到上面「生成」框即可跑）：</p><pre>' + escapeHtml(data.qasm) + '</pre>';
+    el.innerHTML = html;
+  }
+
   function escapeHtml(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
@@ -317,6 +509,9 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if self.path == "/compile":
                 self._handle_compile(data)
+                return
+            if self.path == "/concept":
+                self._handle_concept(data)
                 return
             prompt = (data.get("prompt") or "").strip()
             if not prompt:
@@ -352,6 +547,7 @@ class Handler(BaseHTTPRequestHandler):
             "ok": True,
             "kind": "qasm",
             "qasm": qasm,
+            "summary": _circuit_summary(circuit),
             "counts": result["counts"],
             "shots": result["shots"],
             "ideal": ideal,
@@ -387,6 +583,22 @@ class Handler(BaseHTTPRequestHandler):
                 "assembly": assembly,
             }
         )
+
+    def _handle_concept(self, data: dict) -> None:
+        q = (data.get("q") or "").strip()
+        if not q:
+            self._json({"ok": False, "error": "请输入想了解的概念。"})
+            return
+        concept = adapter.concept_answer(q)
+        if not concept:
+            self._json(
+                {
+                    "ok": False,
+                    "error": "没找到这个概念。试试：贝尔态、GHZ、叠加、纠缠、测量、退相干。",
+                }
+            )
+            return
+        self._json({"ok": True, "kind": "concept", **concept})
 
     def _handle_transpile(self, data: dict) -> None:
         qasm = (data.get("qasm") or "").strip()

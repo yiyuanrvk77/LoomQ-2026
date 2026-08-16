@@ -81,8 +81,21 @@ def run(qasm_str: str, target: str, shots: int) -> Dict[str, Any]:
     }
 
 
+def concept_answer(prompt: str) -> Dict[str, str] | None:
+    """量子概念问答（教育功能）：返回 {'name','explain','qasm'} 或 None。"""
+    try:
+        from .agent import _match_concept
+    except ImportError:  # 脚本方式直接运行时无包上下文
+        from agent import _match_concept
+    concept = _match_concept(prompt)
+    if not concept:
+        return None
+    return {"name": concept["name"], "explain": concept["explain"], "qasm": concept["qasm"]}
+
+
 __all__ = [
     "transpile", "run", "agent_chat", "compile_hybrid",
+    "concept_answer",
     "parse", "simulate", "simulate_with_noise", "probabilities", "emit", "parse_target",
     "parse_braket", "parse_originq", "ghz", "qft", "grover_3",
     "random_circuit", "run_real", "run_braket", "run_spinq",
