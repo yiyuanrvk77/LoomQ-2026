@@ -164,8 +164,8 @@ def _is_backend_query(prompt: str) -> bool:
     )
 
 
-def _fallback_backend(prompt: str) -> str | None:
-    """Deterministic fallback if the model returns no canonical id."""
+def _candidate_backends(prompt: str) -> list[dict]:
+    """按 prompt 中的约束，从能力表筛出所有满足条件的后端（可能为空）。"""
     numbers = [int(x) for x in re.findall(r"\d+", prompt)]
     n_qubits = max(numbers) if numbers else 0
     wants_sim = bool(re.search(r"模拟器|simulator|本地|local", prompt, re.I))
@@ -189,20 +189,38 @@ def _fallback_backend(prompt: str) -> str | None:
     if wants_no_account:
         candidates = [b for b in candidates if not b["requires_account"]]
     candidates = [b for b in candidates if b["max_qubits"] >= n_qubits]
-    if candidates:
-        # Prefer the recommended default local simulator, then no-account,
-        # then no-queue, then free.
-        def preference(b):
-            return (
-                b["id"] != "braket_local_simulator",
-                b["requires_account"],
-                b["queue"] != "none",
-                b["cost"] not in ("free", "free_quota"),
-            )
+    return candidates
 
-        candidates.sort(key=preference)
-        return candidates[0]["id"]
-    return None
+
+def _pick_best_backend(candidates: list[dict]) -> str | None:
+    """从候选集中选默认最优（默认本地模拟器 > 免账号 > 零排队 > 免费）。"""
+    if not candidates:
+        return None
+
+    def preference(b):
+        return (
+            b["id"] != "braket_local_simulator",
+            b["requires_account"],
+            b["queue"] != "none",
+            b["cost"] not in ("free", "free_quota"),
+        )
+
+    candidates.sort(key=preference)
+    return candidates[0]["id"]
+
+
+def _fallback_backend(prompt: str) -> str | None:
+    """Deterministic fallback if the model returns no canonical id."""
+    return _pick_best_backend(_candidate_backends(prompt))
+
+
+def _valid_backend_from_reply(prompt: str, reply: str) -> str | None:
+    """从模型回复里提取后端 ID，但仅当它满足 prompt 约束时才返回。"""
+    llm_id = _extract_backend_id(reply)
+    if not llm_id:
+        return None
+    valid_ids = {b["id"] for b in _candidate_backends(prompt)}
+    return llm_id if llm_id in valid_ids else None
 
 
 def agent_chat(prompt: str) -> str:
@@ -217,13 +235,10 @@ def agent_chat(prompt: str) -> str:
     reply = _chat_reply(messages)
     # 任务路由：选后端意图优先，即使模型误生成了电路也按选平台处理
     if _is_backend_query(prompt):
-        backend_id = _extract_backend_id(reply) or _fallback_backend(prompt)
-        if backend_id:
-            return backend_id
-        messages.append({"role": "assistant", "content": reply})
-        messages.append({"role": "user", "content": "Output ONLY one exact backend id from the table."})
-        reply = _chat_reply(messages)
-        return (_extract_backend_id(reply) or _fallback_backend(prompt) or reply).strip()
+        candidates = _candidate_backends(prompt)
+        if not candidates:
+            return "无解：能力表中没有平台能同时满足这些约束，请放宽比特数、排队或费用要求。"
+        return _valid_backend_from_reply(prompt, reply) or _pick_best_backend(candidates)
 
     qasm = _extract_qasm(reply)
     if qasm:
@@ -245,7 +260,7 @@ def agent_chat(prompt: str) -> str:
                 break
         return qasm if qasm else reply.strip()
 
-    backend_id = _extract_backend_id(reply) or _fallback_backend(prompt)
+    backend_id = _valid_backend_from_reply(prompt, reply) or _fallback_backend(prompt)
     if backend_id:
         return backend_id
 
@@ -258,4 +273,4 @@ def agent_chat(prompt: str) -> str:
         }
     )
     reply = _chat_reply(messages)
-    return (_extract_qasm(reply) or _extract_backend_id(reply) or _fallback_backend(prompt) or reply).strip()
+    return (_extract_qasm(reply) or _valid_backend_from_reply(prompt, reply) or _fallback_backend(prompt) or reply).strip()
