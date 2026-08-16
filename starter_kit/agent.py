@@ -1,6 +1,8 @@
 """L2 智能体：自然语言 -> QASM / 纠错 / 后端选型，读 LOOMQ_LLM_* 配置。"""
 
+import json
 import re
+from pathlib import Path
 
 try:
     from . import llm_client
@@ -11,24 +13,16 @@ except ImportError:  # 脚本方式直接运行时无包上下文
     from qasm_parser import parse
     from simulator import simulate
 
-
-_BACKENDS = [
-    {"id": "spinq_taurus_simulator", "platform": "spinq", "kind": "simulator", "max_qubits": 24, "queue": "none", "cost": "free", "requires_account": False},
-    {"id": "spinq_cloud_qpu", "platform": "spinq", "kind": "qpu", "max_qubits": 8, "queue": "minutes_to_hours", "cost": "free_quota", "requires_account": True},
-    {"id": "originq_local_simulator", "platform": "originq", "kind": "simulator", "max_qubits": 30, "queue": "none", "cost": "free", "requires_account": False},
-    {"id": "originq_wukong", "platform": "originq", "kind": "qpu", "max_qubits": 72, "queue": "hours", "cost": "free_quota", "requires_account": True},
-    {"id": "braket_local_simulator", "platform": "braket", "kind": "simulator", "max_qubits": 25, "queue": "none", "cost": "free", "requires_account": False},
-    {"id": "braket_cloud", "platform": "braket", "kind": "cloud", "max_qubits": 34, "queue": "minutes_to_hours", "cost": "paid", "requires_account": True},
-]
-
-
 def _chat_reply(messages: list[dict]) -> str:
     """调用官方 llm_client 做一次补全，返回 assistant 文本。"""
     return llm_client.chat_completion(messages)["choices"][0]["message"]["content"]
 
 
 def _backend_table() -> list[dict]:
-    return _BACKENDS
+    """Load the official backend capability table (single source of truth)."""
+    path = Path(__file__).with_name("backend_capabilities.json")
+    with open(path, encoding="utf-8") as handle:
+        return json.load(handle)["backends"]
 
 
 def _system_prompt() -> str:
@@ -87,7 +81,7 @@ def _fallback_backend(prompt: str) -> str | None:
     wants_free = bool(re.search(r"免费|free|不花钱|free quota|free_quota", prompt, re.I))
     wants_paid = bool(re.search(r"付费|paid", prompt, re.I))
     wants_no_queue = bool(re.search(r"零排队|不排队|无排队|no queue|立即|马上|立刻", prompt, re.I))
-    wants_qpu = bool(re.search(r"真机|量子芯片|qpu|超导|核磁|芯片|machine|hardware|chip|real device", prompt, re.I))
+    wants_qpu = bool(re.search(r"真机|量子芯片|量子硬件|硬件|实体机|qpu|超导|核磁|芯片|machine|hardware|chip|real device|on real", prompt, re.I))
     wants_no_account = bool(re.search(r"无账号|无需账号|no account|不注册", prompt, re.I))
 
     candidates = _backend_table()
@@ -127,7 +121,7 @@ def agent_chat(prompt: str) -> str:
     reply = _chat_reply(messages)
     qasm = _extract_qasm(reply)
     if qasm:
-        for _ in range(3):
+        for _ in range(2):
             error = _validate(qasm)
             if error is None:
                 return qasm
@@ -159,4 +153,3 @@ def agent_chat(prompt: str) -> str:
     )
     reply = _chat_reply(messages)
     return (_extract_qasm(reply) or _extract_backend_id(reply) or _fallback_backend(prompt) or reply).strip()
-
