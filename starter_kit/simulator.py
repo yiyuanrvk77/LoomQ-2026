@@ -60,6 +60,8 @@ class Simulator:
                 state[i1] = u[1][0] * a + u[1][1] * b
 
     def _apply2(self, u, a: int, b: int):
+        if a == b:
+            raise ValueError("two-qubit gate requires two distinct qubits")
         n = self.n
         mask_a = 1 << a
         mask_b = 1 << b
@@ -82,6 +84,8 @@ class Simulator:
             state[i11] = u[3][0] * v00 + u[3][1] * v01 + u[3][2] * v10 + u[3][3] * v11
 
     def _apply_ccx(self, a: int, b: int, c: int):
+        if len({a, b, c}) != 3:
+            raise ValueError("ccx requires three distinct qubits")
         # qelib1 standard Toffoli decomposition (control a,b; target c).
         self._apply1(_H(), c)
         self._apply2([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]], b, c)
@@ -213,6 +217,5 @@ def simulate_with_noise(circuit: Circuit, shots: int, error_rate: float = 0.02) 
 
 
 """Emit the unified IR as each backend's native target representation."""
-
 
 

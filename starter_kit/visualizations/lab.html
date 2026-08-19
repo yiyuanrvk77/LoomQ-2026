@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>量子纠错可视化实验室 · LoomQ</title>
+<style>
+  :root{
+    --bg:#08090d; --panel:#10141c; --panel2:#141925;
+    --line:#222a37; --line2:#2c3646;
+    --ink:#dbe2ea; --muted:#8b96a6; --faint:#5d6877;
+    --cyan:#37e0d0; --violet:#9f8bff; --amber:#f5b942; --green:#3ecf8e; --red:#f06a6a;
+    --mono:"SF Mono","Cascadia Code","JetBrains Mono","Consolas",monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+    line-height:1.75; font-size:16px; -webkit-font-smoothing:antialiased;
+    background-image:
+      radial-gradient(1100px 560px at 18% -8%, rgba(159,139,255,.08), transparent 60%),
+      radial-gradient(950px 520px at 92% 8%, rgba(55,224,208,.07), transparent 60%),
+      linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px);
+    background-size:auto,auto,34px 34px,34px 34px;
+  }
+  a{color:var(--cyan); text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:760px; margin:0 auto; padding:56px 22px 72px}
+  .back{display:inline-block; margin-bottom:22px; font-size:14px; color:var(--muted)}
+  h1{font-size:clamp(26px,5vw,38px); color:#fff; font-weight:800; letter-spacing:.01em}
+  .sub{color:var(--muted); margin-top:10px; font-size:15.5px}
+  .step{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:18px 20px; margin:16px 0;
+    box-shadow:0 4px 18px rgba(0,0,0,.25);
+  }
+  .step h2{margin:0 0 6px; font-size:1.18em; color:#fff; font-weight:700}
+  .step h2 a{color:#fff}
+  .step h2 a:hover{color:var(--cyan); text-decoration:none}
+  .step p{margin:0; color:var(--muted); font-size:14px; line-height:1.7}
+  .tag{display:inline-block; font-size:11px; color:#fff; background:#64748b; border-radius:4px; padding:1px 7px; margin-left:8px; vertical-align:middle; font-weight:600}
+  .tag.easy{background:var(--green); color:#04140d}
+  .tag.mid{background:var(--amber); color:#1b1304}
+  .tag.hard{background:var(--red); color:#1b0707}
+  .foot{margin-top:28px; color:var(--faint); font-size:13.5px}
+  .foot a{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">← 返回 LoomQ 首页</a>
+
+  <h1>量子纠错可视化实验室</h1>
+  <p class="sub">一条从「最简单的重复码」到「表面码」的学习路径——点开即可交互，亲手注入错误、看校验如何定位。</p>
+
+  <div class="step">
+    <h2><a href="qec-lab.html">① 重复码实验室</a><span class="tag easy">入门</span></h2>
+    <p>用一个比特重复三次来保护信息。支持位翻转（X）和相位翻转（Z）两种错误，可逐比特注入并观察 syndrome 如何定位错误。</p>
+  </div>
+
+  <div class="step">
+    <h2><a href="shor-code.html">② 9 比特 Shor 码</a><span class="tag mid">进阶</span></h2>
+    <p>历史上第一个量子纠错码，能同时纠正 X 和 Z 错误。点一个比特注入错误，看校验如何把它揪出来。</p>
+  </div>
+
+  <div class="step">
+    <h2><a href="steane-code.html">③ Steane 7 比特码（找错游戏）</a><span class="tag mid">进阶</span></h2>
+    <p>CSS 码的经典代表，7 个物理比特编码 1 个逻辑比特。syndrome 的二进制值直接等于出错比特的编号——做成找错挑战游戏。</p>
+  </div>
+
+  <div class="step">
+    <h2><a href="toric-code.html">④ Toric Code（二维表面码）</a><span class="tag hard">高阶</span></h2>
+    <p>拓扑纠错码，把比特铺在二维网格上。点击网格线放一个 X 错误，相邻格子会亮起，直观感受「错误成对出现、靠奇偶异常探测」。</p>
+  </div>
+
+  <p class="foot">想先搞懂基本概念？回 <a href="../QUANTUM_101.md">QUANTUM 101 十分钟速成</a>。</p>
+</div>
+</body>
+</html>

@@ -344,8 +344,6 @@ def _compile_classical(statements: list, num_clbits: int) -> str:
         return ".L_%s_%d" % (prefix, counter[0])
 
     _gen_statements(statements, alloc, out, fresh)
-    for reg in alloc.pool:
-        out.append("addi %s, x0, 0" % reg)
     return "\n".join(out) + "\n"
 
 
@@ -447,4 +445,3 @@ output itself, so these runners are mainly for (a) the public self-check and
 (b) real-machine evidence. Each runner raises if its SDK is missing, and the
 adapter falls back to the built-in simulator in that case.
 """
-

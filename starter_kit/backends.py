@@ -111,6 +111,8 @@ def run_originq(qasm_str: str, shots: int) -> tuple[Dict[str, int], str | None]:
             bin_str = bin(key)[2:].zfill(num_bits)
         else:
             bin_str = str(key).zfill(num_bits)
+        # 统一为 little-endian：c[0] 在最右，与 braket/spinq 及统一 Schema 保持一致。
+        bin_str = bin_str[::-1]
         counts[bin_str] = val
     # 本地 CPUQVM 无云端可溯源 job_id，返回 None 交由 adapter 生成本地任务号。
     return counts, None

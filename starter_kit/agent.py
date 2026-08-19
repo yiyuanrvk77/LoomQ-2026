@@ -166,8 +166,12 @@ def _is_backend_query(prompt: str) -> bool:
 
 def _candidate_backends(prompt: str) -> list[dict]:
     """按 prompt 中的约束，从能力表筛出所有满足条件的后端（可能为空）。"""
-    numbers = [int(x) for x in re.findall(r"\d+", prompt)]
-    n_qubits = max(numbers) if numbers else 0
+    m = re.search(r"(\d+)\s*(?:个)?\s*(?:比特|qubits?|q\s*bits?)", prompt, re.I)
+    if m:
+        n_qubits = int(m.group(1))
+    else:
+        numbers = [int(x) for x in re.findall(r"\d+", prompt)]
+        n_qubits = max(numbers) if numbers else 0
     wants_sim = bool(re.search(r"模拟器|simulator|本地|local", prompt, re.I))
     wants_free = bool(re.search(r"免费|free|不花钱|free quota|free_quota", prompt, re.I))
     wants_paid = bool(re.search(r"付费|paid", prompt, re.I))
@@ -258,19 +262,17 @@ def agent_chat(prompt: str) -> str:
             qasm = _extract_qasm(reply)
             if not qasm:
                 break
-        return qasm if qasm else reply.strip()
+        if qasm and _validate(qasm) is None:
+            return qasm
 
-    backend_id = _valid_backend_from_reply(prompt, reply) or _fallback_backend(prompt)
-    if backend_id:
-        return backend_id
-
+    # 非选后端意图只允许返回 QASM，绝不再误回退成后端 ID。
     messages.append({"role": "assistant", "content": reply})
     messages.append(
         {
             "role": "user",
-            "content": "Output ONLY either an OpenQASM 2.0 program or one exact "
-            "backend id from the table.",
+            "content": "Output ONLY a valid OpenQASM 2.0 program, no other text.",
         }
     )
     reply = _chat_reply(messages)
-    return (_extract_qasm(reply) or _valid_backend_from_reply(prompt, reply) or _fallback_backend(prompt) or reply).strip()
+    qasm = _extract_qasm(reply)
+    return qasm if qasm else reply.strip()

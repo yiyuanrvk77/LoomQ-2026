@@ -77,6 +77,13 @@ def _strip_comment(line: str) -> str:
     return line.split("//", 1)[0].strip()
 
 
+_GATE_WHITELIST = {"h", "x", "s", "sdg", "t", "tdg", "rz", "ry", "cx", "cu1", "swap", "ccx"}
+_GATE_ARITY = {
+    "h": 1, "x": 1, "s": 1, "sdg": 1, "t": 1, "tdg": 1,
+    "rz": 1, "ry": 1, "cx": 2, "cu1": 2, "swap": 2, "ccx": 3,
+}
+
+
 def parse(qasm: str) -> Circuit:
     num_qubits: int | None = None
     num_clbits: int | None = None
@@ -136,6 +143,31 @@ def parse(qasm: str) -> Circuit:
     if num_clbits is None:
         raise ValueError("missing creg declaration")
 
+    for gate in gates:
+        if gate.name not in _GATE_WHITELIST:
+            raise ValueError("gate outside the 12-gate whitelist: %s" % gate.name)
+        if len(gate.qubits) != _GATE_ARITY[gate.name]:
+            raise ValueError(
+                "gate %s expects %d qubit(s), got %d"
+                % (gate.name, _GATE_ARITY[gate.name], len(gate.qubits))
+            )
+        if gate.name in ("rz", "ry", "cu1") and len(gate.params) != 1:
+            raise ValueError("gate %s requires exactly one angle parameter" % gate.name)
+        for q in gate.qubits:
+            if not 0 <= q < num_qubits:
+                raise ValueError(
+                    "qubit index out of range: q[%d] (qreg has %d qubits)"
+                    % (q, num_qubits)
+                )
+    for qubit, clbit in measures:
+        if not 0 <= qubit < num_qubits:
+            raise ValueError("measure qubit index out of range: q[%d]" % qubit)
+        if not 0 <= clbit < num_clbits:
+            raise ValueError(
+                "measure clbit index out of range: c[%d] (creg has %d bits)"
+                % (clbit, num_clbits)
+            )
+
     return Circuit(
         num_qubits=num_qubits,
         num_clbits=num_clbits,
@@ -151,4 +183,3 @@ This exists so the skeleton can self-verify `run()` without installing any
 quantum SDK. Swap this out for the real SpinQit / pyqpanda / Braket runners
 once you wire up true-machine evidence.
 """
-
