@@ -39,6 +39,7 @@
   .nav-links a{color:var(--muted); font-size:14px; padding:6px 12px; border-radius:8px; transition:.2s}
   .nav-links a:hover{color:#fff; text-decoration:none; background:rgba(255,255,255,.05)}
   .lab-entry{color:var(--violet) !important; border:1px solid rgba(159,139,255,.4); background:rgba(159,139,255,.08)}
+  .cave-entry{color:var(--amber) !important; border:1px solid rgba(245,185,66,.42); background:rgba(245,185,66,.08)}
 
   /* ===== Hero ===== */
   .hero{max-width:1080px; margin:0 auto; padding:72px 24px 40px; text-align:center}
@@ -54,6 +55,7 @@
   .bell .math b{color:var(--cyan); font-weight:600}
   .cta{display:inline-flex; align-items:center; gap:8px; margin-top:28px; padding:11px 20px; border-radius:10px; background:linear-gradient(135deg,var(--cyan),#2bb8e0); color:#03181a; font-weight:700; box-shadow:0 6px 24px rgba(55,224,208,.22)}
   .cta:hover{text-decoration:none; transform:translateY(-1px)}
+  .cave-cta{margin-left:8px; background:rgba(245,185,66,.12); color:var(--amber); border:1px solid rgba(245,185,66,.45); box-shadow:none}
 
   /* ===== 章节 ===== */
   main{max-width:1080px; margin:0 auto; padding:24px 24px 80px}
@@ -134,6 +136,7 @@
   <div class="nav-inner">
     <a class="brand" href="#top">LoomQ</a>
     <div class="nav-links">
+      <a class="cave-entry" href="cave.html">量子计算洞穴实验 ↗</a>
       <a href="#pipeline">三级流水线</a>
       <a href="#levels">三个层级</a>
       <a class="lab-entry" href="lab.html">量子纠错可视化实验室 ↗</a>
@@ -174,6 +177,7 @@
   </div>
 
   <a class="cta" href="#pipeline">看三级流水线 ↓</a>
+  <a class="cta cave-cta" href="cave.html">进入量子计算洞穴 ↗</a>
 </header>
 
 <main>
@@ -242,7 +246,8 @@ python3 starter_kit/loomq_cli.py  # 命令行入口</pre><p class="tiny">需要�
   <section id="lab-cta">
     <div class="lab-card">
       <h2>想先搞懂「量子计算到底是什么」？</h2>
-      <p>原理不放在首页，单独收进一个入口：四个可交互的量子纠错实验，加一份十分钟速成。</p>
+      <p>沿着“计算 → 量子比特 → 纠缠 → 干涉 → 测量”的路线先走进洞穴，再进入四个量子纠错实验。</p>
+      <a class="cta cave-cta" href="cave.html">先走量子计算洞穴 ↗</a>
       <a class="cta" href="lab.html">进入 量子纠错可视化实验室 ↗</a>
     </div>
   </section>
@@ -250,7 +255,7 @@ python3 starter_kit/loomq_cli.py  # 命令行入口</pre><p class="tiny">需要�
 
 <footer>
   <p>LoomQ · 量子接入平权计划 — 让「只有问题、没有量子背景」的人第一次用上量子计算。</p>
-  <p><a href="lab.html">量子纠错可视化实验室</a> · <a href="../QUANTUM_101.md">QUANTUM 101 十分钟速成</a></p>
+  <p><a href="cave.html">量子计算洞穴实验</a> · <a href="lab.html">量子纠错可视化实验室</a> · <a href="../QUANTUM_101.md">QUANTUM 101 十分钟速成</a></p>
 </footer>
 
 </body>
