@@ -721,7 +721,11 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         data = {}
         try:
-            length = int(self.headers.get("Content-Length", "0"))
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+            except (TypeError, ValueError):
+                self._json({"ok": False, "error": "Content-Length 必须是有效数字。"}, code=400)
+                return
             if length < 0 or length > self.MAX_BODY_BYTES:
                 self.rfile.read(min(max(length, 0), self.MAX_BODY_BYTES + 1))
                 self.close_connection = True
@@ -747,7 +751,11 @@ class Handler(BaseHTTPRequestHandler):
             if request_path == "/concept":
                 self._handle_concept(data)
                 return
-            prompt = (data.get("prompt") or "").strip()
+            raw_prompt = data.get("prompt") or ""
+            if not isinstance(raw_prompt, str):
+                self._json({"ok": False, "error": "prompt 必须是字符串。"}, code=400)
+                return
+            prompt = raw_prompt.strip()
             if not prompt:
                 self._json({"ok": False, "error": "请输入一句想做的事。"})
                 return
@@ -821,7 +829,11 @@ class Handler(BaseHTTPRequestHandler):
         }
 
     def _handle_experiment(self, data: dict) -> None:
-        prompt = (data.get("prompt") or "").strip()
+        raw_prompt = data.get("prompt") or ""
+        if not isinstance(raw_prompt, str):
+            self._json({"ok": False, "error": "prompt 必须是字符串。"}, code=400)
+            return
+        prompt = raw_prompt.strip()
         if not prompt:
             self._json({"ok": False, "error": "先说一句你想观察的量子现象。"})
             return
@@ -832,8 +844,12 @@ class Handler(BaseHTTPRequestHandler):
         mode = requested_mode
         raw_shots = data.get("shots", 1024)
         raw_observation = data.get("observation", 35)
-        shots = max(100, min(int(raw_shots), 4096))
-        observation = max(0, min(int(raw_observation), 100))
+        try:
+            shots = max(100, min(int(raw_shots), 4096))
+            observation = max(0, min(int(raw_observation), 100))
+        except (TypeError, ValueError):
+            self._json({"ok": False, "error": "shots 和 observation 必须是数字。"}, code=400)
+            return
         fallback_reason = None
         try:
             qasm = _offline_qasm(prompt) if mode == "local" else None
