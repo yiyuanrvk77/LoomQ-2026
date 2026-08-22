@@ -58,6 +58,8 @@ def run(qasm_str: str, target: str, shots: int) -> Dict[str, Any]:
     """Execute a circuit and return the unified result schema."""
     if target not in SUPPORTED_TARGETS:
         raise ValueError("unsupported target: %s" % target)
+    if isinstance(shots, bool) or not isinstance(shots, int) or shots <= 0:
+        raise ValueError("shots must be a positive integer")
     circuit = parse(qasm_str)
     meta = {
         "transpiled_gates": len(circuit.gates),

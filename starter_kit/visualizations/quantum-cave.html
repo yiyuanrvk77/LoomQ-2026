@@ -55,14 +55,15 @@
   .stage-head p { color:var(--muted); font-size:12px; margin:3px 0 0; }
   .stage-meter { color:var(--amber); font:12px var(--mono); white-space:nowrap; }
   .stage { position:relative; min-height:560px; overflow:hidden; border:1px solid var(--line); background:#08131e; }
-  #quantum-cave-canvas { display:block; width:100%; height:100%; min-height:560px; cursor:crosshair; }
+  #quantum-cave-canvas { display:block; width:100%; height:100%; min-height:560px; cursor:crosshair; touch-action:none; }
   .intro-mode .lab-grid { grid-template-columns:minmax(0,1fr); }
   .intro-mode .agent-rail,.intro-mode .control-rail,.intro-mode .bottom-grid { display:none; }
   .intro-mode .stage-head { display:none; }
   .intro-mode .stage { min-height:calc(100vh - 145px); border-color:#355365; }
   .intro-mode #quantum-cave-canvas { min-height:calc(100vh - 145px); }
   .intro-mode .stage-center { visibility:hidden; }
-  .intro-journey { position:absolute; z-index:3; left:12%; right:12%; top:50%; transform:translateY(-50%); max-width:700px; margin:0 auto; text-align:center; }
+  .intro-journey { position:absolute; z-index:3; left:12%; right:12%; top:50%; transform:translateY(-50%); max-width:700px; margin:0 auto; text-align:center; pointer-events:none; }
+  .intro-journey button,.intro-journey textarea { pointer-events:auto; }
   .intro-phase { color:var(--amber); font:11px var(--mono); letter-spacing:.12em; text-transform:uppercase; }
   .intro-journey h2 { max-width:680px; margin:18px auto 10px; color:var(--ink); font-size:48px; line-height:1.12; font-weight:600; text-wrap:balance; text-shadow:0 3px 22px rgba(7,16,25,.95); }
   .intro-journey p { max-width:540px; margin:0 auto; color:var(--muted); font-size:15px; line-height:1.8; text-shadow:0 2px 12px rgba(7,16,25,.95); }
@@ -88,6 +89,8 @@
   .stage-legend { color:var(--faint); font-size:11px; }
   .legend-dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:5px; background:var(--teal); }
   .observe-value { color:var(--amber); font:12px var(--mono); }
+  .sensory-toggle { pointer-events:auto; border:1px solid var(--line); background:rgba(8,19,30,.76); color:var(--muted); padding:7px 9px; border-radius:3px; font:11px var(--mono); }
+  .sensory-toggle:hover,.sensory-toggle[aria-pressed="true"] { border-color:var(--amber); color:var(--amber); }
   .control-rail { min-width:0; border-left:1px solid var(--line); padding-left:20px; }
   .control-label { color:var(--faint); font:11px var(--mono); letter-spacing:.08em; }
   .control-rail h2 { font-size:18px; margin:7px 0 5px; }
@@ -175,7 +178,7 @@
         </section>
         <div class="stage-topline"><span class="stage-label">THE CAVE / PROJECTED REALITY</span><span class="stage-live" id="stage-live">等待实验</span></div>
         <div class="stage-center"><div class="shadow-state" id="shadow-state">· · ·</div><div class="shadow-caption" id="shadow-caption">舞步还在暗处。墙上暂时没有影子。</div><div class="stage-note" id="stage-note">先用一句自然语言告诉洞穴，你想看见什么。</div></div>
-        <div class="stage-bottom"><span class="stage-legend"><i class="legend-dot"></i>可观测样本 <span id="particle-count">72</span></span><span class="observe-value">观测 <b id="observe-stage-value">35%</b></span></div>
+        <div class="stage-bottom"><span class="stage-legend"><i class="legend-dot"></i>可观测样本 <span id="particle-count">72</span></span><button class="sensory-toggle" id="sensory-toggle" type="button" aria-pressed="false">听见影子</button><span class="observe-value">观测 <b id="observe-stage-value">35%</b></span></div>
       </div>
     </section>
 
@@ -206,7 +209,11 @@
   var ctx = canvas.getContext("2d");
   var particles = [];
   var pointer = { x: -999, y: -999, active: false };
-  var state = { phase: 0, observation: 35, shots: 1024, activeAgent: "intent", data: null, runId: 0, running: false, introStep: 0, introPrompt: "", introPrediction: "correlated" };
+  var state = { phase: 0, observation: 35, shots: 1024, activeAgent: "intent", data: null, runId: 0, running: false, introStep: 0, introPrompt: "", introPrediction: "correlated", wallReveal: .18, soundEnabled: false };
+  var ripples = [];
+  var audioContext = null;
+  var reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var bodyFont = getComputedStyle(document.body).fontFamily;
   var phaseNames = ["意图", "电路", "质疑", "模拟", "观测"];
   var agentData = {
     intent: { title: "听懂好奇", copy: "先接住你真正想知道的事，不要求你先说出术语。", output: "你说：两个比特会不会一起出现？" },
@@ -225,6 +232,7 @@
 
   function setIntroStep(step) {
     state.introStep = step;
+    state.wallReveal = Math.max(state.wallReveal, .18 + step * .16);
     var data = introSteps[step];
     document.getElementById("intro-phase").textContent = data.phase;
     document.getElementById("intro-title").textContent = data.title;
@@ -248,6 +256,8 @@
     state.introStep = 0;
     state.introPrompt = "";
     state.introPrediction = "correlated";
+    state.wallReveal = .18;
+    ripples = [];
     root.classList.add("intro-mode");
     document.getElementById("intro-journey").hidden = false;
     document.getElementById("intro-replay").classList.remove("is-visible");
@@ -310,19 +320,197 @@
     for (var i = 0; i < count; i += 1) {
       var angle = Math.random() * Math.PI * 2;
       var radius = 42 + Math.random() * Math.min(width, height) * .42;
-      particles.push({ x: width / 2 + Math.cos(angle) * radius, y: height / 2 + Math.sin(angle) * radius * .62, vx: (Math.random() - .5) * .25, vy: (Math.random() - .5) * .25, r: 1.1 + Math.random() * 2.3, phase: Math.random() * 6.28 });
+      particles.push({ x: width / 2 + Math.cos(angle) * radius, y: height / 2 + Math.sin(angle) * radius * .62, vx: (Math.random() - .5) * .25, vy: (Math.random() - .5) * .25, r: 1.1 + Math.random() * 2.3, phase: Math.random() * 6.28, hue: 34 + Math.random() * 170 });
     }
     document.getElementById("particle-count").textContent = particles.length;
+  }
+
+  function caveWall(width, height) {
+    var left = Math.max(30, width * .12), right = Math.min(width - 30, width * .86);
+    var top = Math.max(48, height * .16), bottom = Math.min(height * .79, height - 70);
+    return { left: left, right: right, top: top, bottom: bottom };
+  }
+
+  function drawWall(width, height, wall, time) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(wall.left + 14, wall.top);
+    ctx.lineTo(wall.right - 14, wall.top);
+    ctx.lineTo(wall.right, wall.bottom);
+    ctx.lineTo(wall.left, wall.bottom);
+    ctx.closePath();
+    var wallGradient = ctx.createLinearGradient(0, wall.top, 0, wall.bottom);
+    wallGradient.addColorStop(0, "rgba(29,50,59,.84)");
+    wallGradient.addColorStop(1, "rgba(9,23,31,.96)");
+    ctx.fillStyle = wallGradient;
+    ctx.fill();
+    ctx.clip();
+    ctx.globalAlpha = .15 + state.wallReveal * .28;
+    ctx.fillStyle = "#9eb9b6";
+    ctx.font = "11px " + bodyFont;
+    var code = ["def quantum_question():", "  qreg q[2]", "  h q[0]", "  cx q[0], q[1]", "  measure q -> c", "return shadow(c)"];
+    for (var line = 0; line < 8; line += 1) {
+      var y = wall.top + 28 + line * 26;
+      var offset = Math.sin(time * .12 + line) * 7;
+      ctx.fillText(code[line % code.length], wall.left + 28 + offset, y);
+      ctx.fillStyle = line % 2 ? "#5f8486" : "#9eb9b6";
+    }
+    ctx.globalAlpha = .5 + state.wallReveal * .35;
+    ctx.fillStyle = "#f2c66d";
+    ctx.font = "10px " + bodyFont;
+    ctx.fillText("PYTHON / THE WALL", wall.left + 18, wall.top - 12);
+    ctx.restore();
+    ctx.save();
+    ctx.strokeStyle = "rgba(142,185,184," + (.18 + state.wallReveal * .22).toFixed(3) + ")";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(wall.left + 14, wall.top);
+    ctx.lineTo(wall.right - 14, wall.top);
+    ctx.lineTo(wall.right, wall.bottom);
+    ctx.lineTo(wall.left, wall.bottom);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawFire(width, height, time) {
+    var fireX = width * .16, fireY = height * .83;
+    var light = ctx.createRadialGradient(fireX, fireY, 2, fireX, fireY, Math.min(width, height) * .58);
+    light.addColorStop(0, "rgba(255,190,91,.28)");
+    light.addColorStop(.34, "rgba(238,142,108,.10)");
+    light.addColorStop(1, "rgba(238,142,108,0)");
+    ctx.fillStyle = light;
+    ctx.fillRect(0, 0, width, height);
+    ctx.save();
+    ctx.translate(fireX, fireY);
+    ctx.globalAlpha = .62 + Math.sin(time * 2.2) * .08;
+    ctx.fillStyle = "#f2c66d";
+    ctx.beginPath();
+    ctx.moveTo(-18, 10);
+    ctx.bezierCurveTo(-22, -8, -7, -13, -8, -31);
+    ctx.bezierCurveTo(4, -20, 8, -12, 5, -2);
+    ctx.bezierCurveTo(18, -18, 24, -8, 17, 11);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = .78;
+    ctx.fillStyle = "#ee8eaa";
+    ctx.beginPath();
+    ctx.moveTo(-8, 10);
+    ctx.bezierCurveTo(-11, -3, -1, -7, 1, -20);
+    ctx.bezierCurveTo(9, -9, 10, -1, 7, 10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function projectShadow(p, width, height, wall) {
+    var x = Math.max(0, Math.min(1, p.x / width));
+    var y = Math.max(0, Math.min(1, p.y / height));
+    return { x: wall.left + x * (wall.right - wall.left), y: wall.top + y * (wall.bottom - wall.top) * .82 };
+  }
+
+  function drawShadows(width, height, wall) {
+    var clarity = .12 + state.wallReveal * .68;
+    for (var i = 0; i < particles.length; i += 1) {
+      var p = particles[i], shadow = projectShadow(p, width, height, wall);
+      var spread = p.r * (2.2 + state.wallReveal * 2.6);
+      ctx.save();
+      ctx.globalAlpha = clarity * (.55 + (i % 5) * .08);
+      ctx.fillStyle = "rgba(3,10,15,.92)";
+      ctx.shadowBlur = 12 + state.wallReveal * 14;
+      ctx.shadowColor = "rgba(242,198,109,.35)";
+      ctx.beginPath();
+      ctx.ellipse(shadow.x, shadow.y, spread * 1.7, spread, 0, 0, Math.PI * 2);
+      ctx.fill();
+      if (state.wallReveal > .42 && i % 4 === 0) {
+        ctx.globalAlpha = .32 + state.wallReveal * .25;
+        ctx.fillStyle = i % 8 === 0 ? "#f2c66d" : "#82c7ff";
+        ctx.font = "9px " + bodyFont;
+        ctx.fillText(i % 2 ? "01" : "00", shadow.x + spread * 2, shadow.y + 3);
+      }
+      ctx.restore();
+    }
+  }
+
+  function drawRipples() {
+    for (var i = ripples.length - 1; i >= 0; i -= 1) {
+      var ripple = ripples[i];
+      ripple.radius += reducedMotion ? .7 : 1.7;
+      ripple.life -= reducedMotion ? .035 : .018;
+      if (ripple.life <= 0) { ripples.splice(i, 1); continue; }
+      ctx.save();
+      ctx.globalAlpha = ripple.life * .75;
+      ctx.strokeStyle = "hsl(" + ripple.hue + " 82% 72%)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(ripple.x, ripple.y, ripple.radius, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = ripple.life * .16;
+      ctx.fillStyle = "hsl(" + ripple.hue + " 82% 72%)";
+      ctx.beginPath(); ctx.arc(ripple.x, ripple.y, ripple.radius * .35, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  function playEcho(hue) {
+    if (!state.soundEnabled) return;
+    var AudioCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtor) return;
+    audioContext = audioContext || new AudioCtor();
+    if (audioContext.state === "suspended") audioContext.resume();
+    var oscillator = audioContext.createOscillator(), gain = audioContext.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.value = 180 + hue * 1.5;
+    gain.gain.setValueAtTime(.0001, audioContext.currentTime);
+    gain.gain.exponentialRampToValueAtTime(.045, audioContext.currentTime + .012);
+    gain.gain.exponentialRampToValueAtTime(.0001, audioContext.currentTime + .26);
+    oscillator.connect(gain); gain.connect(audioContext.destination);
+    oscillator.start(); oscillator.stop(audioContext.currentTime + .28);
+  }
+
+  function touchCave(x, y) {
+    var closest = null, distance = 9999;
+    particles.forEach(function (p) {
+      var dx = p.x - x, dy = p.y - y, d = dx * dx + dy * dy;
+      if (d < distance) { distance = d; closest = p; }
+    });
+    var wall = caveWall(canvas.__width || canvas.clientWidth || 700, canvas.__height || canvas.clientHeight || 560);
+    var touchedWall = y >= wall.top - 18 && y <= wall.bottom + 12 && x >= wall.left && x <= wall.right;
+    if (!closest || distance >= 15000) {
+      if (!touchedWall) return;
+      closest = { hue: 42 + state.introStep * 30 };
+    }
+    state.wallReveal = Math.min(1, state.wallReveal + (touchedWall ? .08 : .12));
+    ripples.push({ x: x, y: y, radius: 4, life: 1, hue: closest.hue });
+    if (navigator.vibrate) navigator.vibrate(8);
+    playEcho(closest.hue);
+    var message = touchedWall ? "墙面接住了这一下：Python 只是入口，影子才是证据。" : "你触到一位舞者：光变成颜色，影子变成一声回响。";
+    if (state.introStep === 0) message = "火光被你触醒了。先看见一位舞者，再走近它的影子。";
+    if (state.introStep >= 3) message = "同一位舞者又走了一遍。重复之后，影子的主峰会更稳定。";
+    document.getElementById("stage-note").textContent = message;
+    document.getElementById("stage-live").textContent = "联觉回声 / " + Math.round(state.wallReveal * 100) + "%";
+    if (state.introStep === 0) {
+      state.introStep = 1;
+      window.setTimeout(function () {
+        if (root.classList.contains("intro-mode")) {
+          setIntroStep(1);
+          document.getElementById("intro-prompt").focus();
+        }
+      }, reducedMotion ? 0 : 420);
+    }
   }
 
   function draw() {
     var width = canvas.__width || canvas.clientWidth || 700;
     var height = canvas.__height || canvas.clientHeight || 560;
+    var time = Date.now() * .001;
     ctx.clearRect(0, 0, width, height);
     ctx.fillStyle = "#08131e";
     ctx.fillRect(0, 0, width, height);
     var cx = width / 2, cy = height * .52;
     var caveWidth = Math.min(width * .82, 650), caveHeight = Math.min(height * .74, 430);
+    var wall = caveWall(width, height);
+    drawWall(width, height, wall, time);
+    drawFire(width, height, time);
+    drawShadows(width, height, wall);
     ctx.save();
     ctx.strokeStyle = "rgba(111,231,217,.10)";
     ctx.lineWidth = 1;
@@ -345,8 +533,9 @@
     ctx.restore();
     for (var i = 0; i < particles.length; i += 1) {
       var p = particles[i];
-      p.phase += .018;
-      p.x += p.vx; p.y += p.vy;
+      p.phase += .018 * (reducedMotion ? .2 : 1);
+      p.x += p.vx + Math.cos(time * .6 + p.phase) * .035;
+      p.y += p.vy + Math.sin(time * .7 + p.phase) * .025;
       if (p.x < -20) p.x = width + 20; if (p.x > width + 20) p.x = -20;
       if (p.y < -20) p.y = height + 20; if (p.y > height + 20) p.y = -20;
       if (pointer.active) {
@@ -363,12 +552,16 @@
     for (var j = 0; j < particles.length; j += 1) {
       var dot = particles[j];
       var pulse = 1 + Math.sin(dot.phase) * .18;
-      ctx.fillStyle = j % 5 === 0 ? "#f2c66d" : "#6fe7d9";
+      ctx.fillStyle = "hsl(" + dot.hue.toFixed(0) + " 78% " + (j % 5 === 0 ? "72%" : "68%") + ")";
       ctx.globalAlpha = .46 + state.observation / 220;
+      ctx.shadowBlur = 8 + state.wallReveal * 7;
+      ctx.shadowColor = ctx.fillStyle;
       ctx.beginPath(); ctx.arc(dot.x, dot.y, dot.r * pulse, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
     }
     ctx.globalAlpha = 1;
     ctx.fillStyle = "rgba(242,198,109,.75)"; ctx.beginPath(); ctx.arc(cx, cy, 3 + state.observation / 28, 0, Math.PI * 2); ctx.fill();
+    drawRipples();
     requestAnimationFrame(draw);
   }
 
@@ -421,7 +614,7 @@
       var data = await response.json();
       if (!data.ok) throw new Error(data.error || "实验失败");
       if (runId !== state.runId) return;
-      state.data = data; setAgent("observer", 4);
+      state.data = data; state.wallReveal = 1; setAgent("observer", 4);
       if (data.kind === "answer") {
         renderAnswer(data);
         document.getElementById("top-status").textContent = "AGENT · ANSWER";
@@ -499,11 +692,17 @@
   });
   document.querySelectorAll(".preset").forEach(function (button) { button.addEventListener("click", function () { if (state.running) return; document.querySelectorAll(".preset").forEach(function (item) { item.setAttribute("aria-pressed", "false"); }); button.setAttribute("aria-pressed", "true"); runExperiment(button.getAttribute("data-prompt"), button.getAttribute("data-prediction"), "local"); }); });
   document.getElementById("run-button").addEventListener("click", function () { runExperiment(null, null, "auto"); });
+  document.getElementById("sensory-toggle").addEventListener("click", function () {
+    state.soundEnabled = !state.soundEnabled;
+    this.setAttribute("aria-pressed", state.soundEnabled ? "true" : "false");
+    this.textContent = state.soundEnabled ? "关闭回声" : "听见影子";
+    document.getElementById("stage-note").textContent = state.soundEnabled ? "回声已打开：每一次点击会对应一个不同音高。" : "回声已关闭：视觉涟漪仍会保留。";
+  });
   document.getElementById("observation-range").addEventListener("input", function (event) { updateObservation(event.target.value); });
   document.getElementById("shots-range").addEventListener("input", function (event) { updateShots(event.target.value); });
   canvas.addEventListener("pointermove", function (event) { var rect = canvas.getBoundingClientRect(); pointer.x = event.clientX - rect.left; pointer.y = event.clientY - rect.top; pointer.active = true; });
   canvas.addEventListener("pointerleave", function () { pointer.active = false; });
-  canvas.addEventListener("click", function (event) { var rect = canvas.getBoundingClientRect(), x = event.clientX - rect.left, y = event.clientY - rect.top, closest = null, distance = 9999; particles.forEach(function (p) { var dx = p.x - x, dy = p.y - y, d = dx * dx + dy * dy; if (d < distance) { distance = d; closest = p; } }); if (closest && distance < 12000) { document.getElementById("stage-note").textContent = "你点中了一个状态样本：它只能告诉你一个出口影子，不能替代完整量子态。"; } });
+  canvas.addEventListener("click", function (event) { var rect = canvas.getBoundingClientRect(); touchCave(event.clientX - rect.left, event.clientY - rect.top); });
   window.addEventListener("resize", function () { resizeCanvas(); seedParticles(); });
   resizeCanvas(); seedParticles(); updateObservation(35); updateShots(1024); enterIntro(); draw();
 }());

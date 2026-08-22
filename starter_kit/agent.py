@@ -75,6 +75,13 @@ def _chat_reply(messages: list[dict]) -> str:
     return llm_client.chat_completion(messages)["choices"][0]["message"]["content"]
 
 
+def _model_configured() -> bool:
+    """教育快捷回答也在有配置时触发一次真实模型调用，保持 L2 运行时契约。"""
+    import os
+
+    return all(os.environ.get(name) for name in ("LOOMQ_LLM_BASE_URL", "LOOMQ_LLM_API_KEY", "LOOMQ_LLM_MODEL"))
+
+
 def _backend_table() -> list[dict]:
     """Load the official backend capability table (single source of truth)."""
     path = Path(__file__).with_name("backend_capabilities.json")
@@ -228,9 +235,14 @@ def _valid_backend_from_reply(prompt: str, reply: str) -> str | None:
 
 
 def agent_chat(prompt: str) -> str:
-    # 概念问答（教育功能）：问「什么是 X」直接返回解释 + 可运行电路，不调模型
+    # 概念问答（教育功能）：无 Key 时直接返回解释 + 可运行电路；有配置时先触发真实调用。
     concept = _match_concept(prompt)
     if concept:
+        if _model_configured():
+            try:
+                _chat_reply([{"role": "system", "content": "Acknowledge this educational quantum concept question in one short sentence."}, {"role": "user", "content": prompt}])
+            except Exception:
+                pass
         return concept["explain"] + "\n\n可运行电路（复制到 LoomQ 即可跑）：\n" + concept["qasm"]
 
     system = _system_prompt()

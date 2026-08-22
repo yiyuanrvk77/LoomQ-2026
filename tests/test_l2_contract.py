@@ -47,6 +47,15 @@ class PublicL2ContractTests(unittest.TestCase):
 
         self.assertEqual(adapter.SUPPORTED_TARGETS, ("spinq", "originq", "braket"))
 
+    def test_adapter_rejects_invalid_shots_before_execution(self):
+        adapter = importlib.import_module("starter_kit.adapter")
+        qasm = (ROOT / "starter_kit" / "circuits" / "bell.qasm").read_text(encoding="utf-8")
+
+        for invalid in (0, -1, True, 1.5):
+            with self.subTest(shots=invalid):
+                with self.assertRaisesRegex(ValueError, "shots must be a positive integer"):
+                    adapter.run(qasm, "braket", invalid)
+
     def test_policy_is_the_published_formal_deepseek_budget(self):
         policy = json.loads(POLICY.read_text(encoding="utf-8"))
         self.assertEqual(policy["formal_model"], "deepseek-v4-flash")
