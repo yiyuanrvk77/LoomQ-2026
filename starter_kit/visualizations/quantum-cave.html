@@ -7,6 +7,7 @@
 <style>
   :root { --void:#071019; --deep:#0b1722; --surface:#101d29; --surface-2:#142534; --line:#274052; --ink:#e9f1f0; --muted:#8ea5aa; --faint:#60757b; --teal:#6fe7d9; --cyan:#82c7ff; --amber:#f2c66d; --rose:#ee8eaa; --green:#9be4a8; --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace; }
   * { box-sizing:border-box; }
+  [hidden] { display:none !important; }
   html { background:var(--void); }
   body { margin:0; min-width:320px; background:var(--void); color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif; line-height:1.5; }
   button,input,textarea { font:inherit; }
@@ -44,6 +45,10 @@
   .agent-inspector h2 { font-size:17px; margin:7px 0 6px; }
   .agent-inspector p { color:var(--muted); font-size:12px; margin:0; }
   .agent-output { margin-top:13px; color:var(--teal); font:11px/1.6 var(--mono); white-space:pre-wrap; }
+  .story-bridge { margin-top:22px; padding:14px 0 0 14px; border-left:2px solid var(--amber); }
+  .story-bridge p { color:var(--muted); font-size:12px; margin:0; }
+  .story-bridge .story-line { color:var(--ink); font-size:13px; line-height:1.7; }
+  .story-bridge .story-map { color:var(--amber); font:10px/1.6 var(--mono); margin-top:10px; }
   .stage-column { min-width:0; }
   .stage-head { display:flex; justify-content:space-between; align-items:end; gap:14px; margin-bottom:10px; }
   .stage-head h2 { font-size:16px; margin:0; }
@@ -51,6 +56,27 @@
   .stage-meter { color:var(--amber); font:12px var(--mono); white-space:nowrap; }
   .stage { position:relative; min-height:560px; overflow:hidden; border:1px solid var(--line); background:#08131e; }
   #quantum-cave-canvas { display:block; width:100%; height:100%; min-height:560px; cursor:crosshair; }
+  .intro-mode .lab-grid { grid-template-columns:minmax(0,1fr); }
+  .intro-mode .agent-rail,.intro-mode .control-rail,.intro-mode .bottom-grid { display:none; }
+  .intro-mode .stage-head { display:none; }
+  .intro-mode .stage { min-height:calc(100vh - 145px); border-color:#355365; }
+  .intro-mode #quantum-cave-canvas { min-height:calc(100vh - 145px); }
+  .intro-mode .stage-center { visibility:hidden; }
+  .intro-journey { position:absolute; z-index:3; left:12%; right:12%; top:50%; transform:translateY(-50%); max-width:700px; margin:0 auto; text-align:center; }
+  .intro-phase { color:var(--amber); font:11px var(--mono); letter-spacing:.12em; text-transform:uppercase; }
+  .intro-journey h2 { max-width:680px; margin:18px auto 10px; color:var(--ink); font-size:48px; line-height:1.12; font-weight:600; text-wrap:balance; text-shadow:0 3px 22px rgba(7,16,25,.95); }
+  .intro-journey p { max-width:540px; margin:0 auto; color:var(--muted); font-size:15px; line-height:1.8; text-shadow:0 2px 12px rgba(7,16,25,.95); }
+  .intro-action { margin-top:25px; border:1px solid var(--teal); background:var(--teal); color:#06211e; padding:12px 20px; border-radius:3px; font-weight:700; }
+  .intro-action:hover { background:#a0f1e5; }
+  .intro-quiet { display:block; width:max-content; max-width:100%; margin:14px auto 0; padding:3px 0; border:0; border-bottom:1px solid transparent; background:transparent; color:var(--muted); font-size:12px; }
+  .intro-quiet:hover { color:var(--ink); border-color:var(--teal); }
+  .intro-prompt-wrap { max-width:540px; margin:18px auto 0; }
+  .intro-prompt { min-height:74px; background:rgba(9,22,33,.82); text-align:left; }
+  .intro-choices { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-top:20px; }
+  .intro-choice { border:1px solid var(--line); background:rgba(9,22,33,.82); color:var(--muted); padding:10px 13px; border-radius:3px; font-size:12px; }
+  .intro-choice:hover,.intro-choice[aria-pressed="true"] { border-color:var(--amber); color:var(--amber); }
+  .intro-replay { display:none; border:0; background:transparent; color:var(--muted); padding:0; }
+  .intro-replay.is-visible { display:inline-block; }
   .stage-topline { position:absolute; left:20px; right:20px; top:17px; display:flex; justify-content:space-between; gap:10px; pointer-events:none; }
   .stage-label { color:var(--muted); font:11px var(--mono); letter-spacing:.1em; }
   .stage-live { color:var(--teal); font:11px var(--mono); }
@@ -110,19 +136,20 @@
   .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
   @media (max-width:1180px) { .lab-grid { grid-template-columns:210px minmax(0,1fr); } .control-rail { grid-column:1 / -1; border-left:0; border-top:1px solid var(--line); padding:20px 0 0; display:grid; grid-template-columns:1.2fr .8fr; gap:26px; } .control-rail .control-block { margin-top:0; } }
   @media (max-width:760px) { .app { padding:17px 14px 28px; } .topbar { align-items:flex-start; } .top-actions { flex-wrap:wrap; justify-content:flex-end; } .top-status { width:100%; text-align:right; order:2; } .lab-grid { grid-template-columns:1fr; gap:18px; } .agent-rail { display:grid; grid-template-columns:1fr 1fr; gap:14px; } .agent-rail h1,.agent-rail .intro { grid-column:1 / -1; } .agent-chain { grid-column:1 / -1; grid-template-columns:repeat(5,1fr); gap:4px; } .agent-chain:before { left:9%; right:9%; top:18px; bottom:auto; width:auto; height:1px; } .agent-node { display:block; min-height:0; padding:0; text-align:center; border:0; } .agent-node[aria-pressed="true"] { background:transparent; } .agent-orb { margin:0 auto 6px; width:34px; height:34px; } .agent-node strong { font-size:10px; white-space:nowrap; } .agent-node small { display:none; } .agent-inspector { margin-top:0; padding-top:0; border-top:0; } .stage { min-height:430px; } #quantum-cave-canvas { min-height:430px; } .bottom-grid { grid-template-columns:1fr; } .control-rail { display:block; } .control-rail .control-block { margin-top:16px; } }
+  @media (max-width:760px) { .intro-mode .stage { min-height:calc(100vh - 130px); } .intro-mode #quantum-cave-canvas { min-height:calc(100vh - 130px); } .intro-journey { left:16px; right:16px; top:48%; } .intro-journey h2 { margin-top:14px; font-size:32px; } .intro-journey p { font-size:13px; line-height:1.7; } .intro-action { margin-top:20px; } }
   @media (prefers-reduced-motion:reduce) { *,*:before,*:after { scroll-behavior:auto !important; transition:none !important; animation:none !important; } }
 </style>
 </head>
 <body>
-<div class="app" id="quantum-cave-app">
+<div class="app intro-mode" id="quantum-cave-app">
   <header class="topbar">
     <div class="brand"><span class="brand-mark" aria-hidden="true"></span><div><strong>LOOMQ / QUANTUM CAVE</strong><small>一个可观察、可修改、可复现的量子实验</small></div></div>
-    <div class="top-actions"><span class="top-status" id="top-status">AUTO ROUTE · READY</span><a class="ghost-link" href="/visualizations/index.html">实验室索引</a><a class="ghost-link" href="/classic">完整 Agent 工作台</a></div>
+    <div class="top-actions"><span class="top-status" id="top-status">CAVE ENTRY · READY</span><button class="ghost-link intro-replay" id="intro-replay" type="button">重新走一遍</button><a class="ghost-link" href="/visualizations/index.html">实验室索引</a><a class="ghost-link" href="/classic">完整 Agent 工作台</a></div>
   </header>
 
   <main class="lab-grid">
     <aside class="agent-rail" aria-label="智能体协作图谱">
-      <div><p class="eyebrow">L2 / agent field</p><h1>让影子<br>自己说话。</h1><p class="intro">你先猜一次。智能体再把目标翻译成电路，质疑它，运行它，最后把证据带回洞口。</p></div>
+      <div><p class="eyebrow">L2 / agent field</p><h1>让影子<br>自己说话。</h1><p class="intro">先别急着学会 Python。洞里有一群看不见的舞者，我们只能让光落到墙上，再从影子猜它们发生了什么。</p><div class="story-bridge" aria-label="量子洞穴引入"><p class="story-line">你只要用自己的话问一句：<br>“我想看看，什么会一起出现？”</p><p>洞穴会替你把问题变成一小段舞步，反复走过，再把留下的影子带回来。</p><p class="story-map">舞步 = 状态变化　灯光 = 测量　影子 = 证据</p></div></div>
       <div class="agent-chain" role="list" aria-label="实验智能体阶段">
         <button class="agent-node active" type="button" role="listitem" aria-pressed="true" data-agent="intent"><span class="agent-orb">01</span><span><strong>意图</strong><small>听懂你要看什么</small></span></button>
         <button class="agent-node" type="button" role="listitem" aria-pressed="false" data-agent="circuit"><span class="agent-orb">02</span><span><strong>电路</strong><small>搭出可执行路径</small></span></button>
@@ -130,23 +157,32 @@
         <button class="agent-node" type="button" role="listitem" aria-pressed="false" data-agent="simulator"><span class="agent-orb">04</span><span><strong>模拟</strong><small>重复走过这条路</small></span></button>
         <button class="agent-node" type="button" role="listitem" aria-pressed="false" data-agent="observer"><span class="agent-orb">05</span><span><strong>观测</strong><small>把影子带回来</small></span></button>
       </div>
-      <div class="agent-inspector" aria-live="polite"><span class="inspector-label">SELECTED AGENT</span><h2 id="agent-title">意图翻译</h2><p id="agent-copy">把你的话变成一个可以被验证的实验目标。</p><div class="agent-output" id="agent-output">等待输入…</div></div>
+      <div class="agent-inspector" aria-live="polite"><span class="inspector-label">SELECTED AGENT</span><h2 id="agent-title">听懂好奇</h2><p id="agent-copy">先接住你真正想知道的事，不要求你先说出术语。</p><div class="agent-output" id="agent-output">等你说出第一句好奇。</div></div>
     </aside>
 
     <section class="stage-column" aria-label="量子洞穴主舞台">
-      <div class="stage-head"><div><h2>洞内观测场</h2><p>粒子是状态样本，连线是关联，中央的影子是测量后留下的证据。</p></div><span class="stage-meter" id="stage-meter">PHASE 01 / 05</span></div>
+      <div class="stage-head"><div><h2>洞内观测场</h2><p>先看舞步，再看影子：粒子是变化中的状态，中央留下的是测量后的证据。</p></div><span class="stage-meter" id="stage-meter">PHASE 01 / 05</span></div>
       <div class="stage">
         <canvas id="quantum-cave-canvas" aria-label="可点击的量子状态粒子场"></canvas>
+        <section class="intro-journey" id="intro-journey" aria-live="polite" aria-label="量子洞穴开场引导">
+          <div class="intro-phase" id="intro-phase">01 / 05 · 听懂好奇</div>
+          <h2 id="intro-title">有一群舞者，正在暗处变化。</h2>
+          <p id="intro-copy">你看不到它们，只看见一束光投在墙上的影子。</p>
+          <div class="intro-prompt-wrap" id="intro-prompt-wrap" hidden><label class="sr-only" for="intro-prompt">你想观察的现象</label><textarea class="intro-prompt" id="intro-prompt" placeholder="例如：我想看看两个比特会不会一起出现"></textarea></div>
+          <div class="intro-choices" id="intro-choices" hidden><button class="intro-choice" type="button" data-intro-prediction="correlated">我猜：会一起出现</button><button class="intro-choice" type="button" data-intro-prediction="uncertain">我还不确定</button></div>
+          <button class="intro-action" id="intro-action" type="button">走近一点</button>
+          <button class="intro-quiet" id="intro-skip" type="button">直接说出一个问题</button>
+        </section>
         <div class="stage-topline"><span class="stage-label">THE CAVE / PROJECTED REALITY</span><span class="stage-live" id="stage-live">等待实验</span></div>
-        <div class="stage-center"><div class="shadow-state" id="shadow-state">· · ·</div><div class="shadow-caption" id="shadow-caption">还没有影子。先给洞穴一个问题。</div><div class="stage-note" id="stage-note">点击粒子，可以查看一个被抽出的状态样本。</div></div>
+        <div class="stage-center"><div class="shadow-state" id="shadow-state">· · ·</div><div class="shadow-caption" id="shadow-caption">舞步还在暗处。墙上暂时没有影子。</div><div class="stage-note" id="stage-note">先用一句自然语言告诉洞穴，你想看见什么。</div></div>
         <div class="stage-bottom"><span class="stage-legend"><i class="legend-dot"></i>可观测样本 <span id="particle-count">72</span></span><span class="observe-value">观测 <b id="observe-stage-value">35%</b></span></div>
       </div>
     </section>
 
     <aside class="control-rail" aria-label="实验控制台">
       <div>
-        <span class="control-label">EXPERIMENT / 01</span><h2>先提出一个问题</h2><p class="lede">不要先写 QASM。告诉洞穴你想区分什么。</p>
-        <div class="prompt-form"><label class="sr-only" for="task-input">实验目标</label><textarea id="task-input" placeholder="例如：我想看看两个比特会不会一起出现"></textarea><button class="run-button" id="run-button" type="button">开始一次观测</button></div>
+        <span class="control-label">SAY IT / 01</span><h2>你想看见什么？</h2><p class="lede">不用先写代码。把你脑中的好奇，直接说给洞穴听。</p>
+        <div class="prompt-form"><label class="sr-only" for="task-input">你想观察的现象</label><textarea id="task-input" placeholder="例如：我想看看两个比特会不会一起出现"></textarea><button class="run-button" id="run-button" type="button">让舞步开始</button></div>
         <div class="preset-row" aria-label="实验预设"><button class="preset" type="button" data-prompt="做一个 Bell 态并测量" data-prediction="correlated">Bell / 纠缠</button><button class="preset" type="button" data-prompt="生成一个 3 比特 GHZ 纠缠态并全测量" data-prediction="correlated">GHZ / 相关性</button><button class="preset" type="button" data-prompt="生成一个叠加态" data-prediction="uniform">叠加 / 概率</button><button class="preset" type="button" data-prompt="用 Grover 搜索一个目标" data-prediction="uncertain">Grover / 搜索</button></div>
       </div>
       <div>
@@ -170,15 +206,90 @@
   var ctx = canvas.getContext("2d");
   var particles = [];
   var pointer = { x: -999, y: -999, active: false };
-  var state = { phase: 0, observation: 35, shots: 1024, activeAgent: "intent", data: null, runId: 0, running: false };
+  var state = { phase: 0, observation: 35, shots: 1024, activeAgent: "intent", data: null, runId: 0, running: false, introStep: 0, introPrompt: "", introPrediction: "correlated" };
   var phaseNames = ["意图", "电路", "质疑", "模拟", "观测"];
   var agentData = {
-    intent: { title: "意图翻译", copy: "把你的话变成一个可以被验证的实验目标。", output: "输入：一句自然语言\\n输出：目标 + 可观测变量" },
-    circuit: { title: "电路构建", copy: "选择最小的门序列，把目标变成 OpenQASM。", output: "检查：门白名单\\n产出：可执行电路" },
-    critic: { title: "假设质疑", copy: "先预测主峰，再运行。预测错了也没关系，错是实验的入口。", output: "问题：如果拆掉 CX，相关性还在吗？" },
-    simulator: { title: "本地模拟", copy: "不需要账号，重复走过这条路，把概率变成 counts。", output: "backend：braket_local_simulator\\nshots：等待设置" },
-    observer: { title: "观测解释", copy: "把测量后的影子和理想分布、噪声分布放在一起解释。", output: "证据：等待出口结果" }
+    intent: { title: "听懂好奇", copy: "先接住你真正想知道的事，不要求你先说出术语。", output: "你说：两个比特会不会一起出现？" },
+    circuit: { title: "编一段舞步", copy: "把问题翻译成一条可以重复走过的量子路径。", output: "产出：一段可执行的 QASM" },
+    critic: { title: "先猜影子", copy: "在开灯前先猜一次。猜错了也没关系，偏差就是下一句问题。", output: "问题：拆掉一根连线，影子还会一起出现吗？" },
+    simulator: { title: "反复走过", copy: "让同一段舞步重复发生，把一次偶然变成一组分布。", output: "本地舞台：braket_local_simulator" },
+    observer: { title: "读回影子", copy: "把理想、采样和噪声放在一起，看见证据如何改变。", output: "证据：等待出口结果" }
   };
+  var introSteps = [
+    { phase: "01 / 05 · 听懂好奇", title: "有一群舞者，正在暗处变化。", copy: "你看不到它们，只看见一束光投在墙上的影子。", action: "走近一点", agent: "intent", index: 0 },
+    { phase: "02 / 05 · 编一段舞步", title: "把你的好奇说出来。", copy: "不用先学会 Python，也不用记住术语。告诉洞穴，你真正想看见什么。", action: "把这句话交给洞穴", agent: "circuit", index: 1 },
+    { phase: "03 / 05 · 先猜影子", title: "在开灯前，先猜一次。", copy: "如果两个比特有关系，它们会不会一起落在墙上？", action: "", agent: "critic", index: 2 },
+    { phase: "04 / 05 · 反复走过", title: "同一段舞步，再走很多次。", copy: "一次是故事，很多次才会变成一组可以比较的影子。", action: "重复走过", agent: "simulator", index: 3 },
+    { phase: "05 / 05 · 读回影子", title: "现在，让影子回来。", copy: "你先留下猜测，洞穴再把舞步、采样和证据交还给你。", action: "把影子带回来", agent: "observer", index: 4 }
+  ];
+
+  function setIntroStep(step) {
+    state.introStep = step;
+    var data = introSteps[step];
+    document.getElementById("intro-phase").textContent = data.phase;
+    document.getElementById("intro-title").textContent = data.title;
+    document.getElementById("intro-copy").textContent = data.copy;
+    document.getElementById("intro-action").textContent = data.action;
+    document.getElementById("intro-action").hidden = step === 2;
+    document.getElementById("intro-prompt-wrap").hidden = step !== 1;
+    document.getElementById("intro-choices").hidden = step !== 2;
+    document.getElementById("intro-skip").textContent = step === 0 ? "直接说出一个问题" : "跳过引导，进入实验";
+    document.getElementById("stage-live").textContent = step === 0 ? "等待靠近" : "引导进行中";
+    setAgent(data.agent, data.index);
+    if (step === 1) {
+      document.getElementById("intro-prompt").value = state.introPrompt || "";
+    }
+    document.querySelectorAll("[data-intro-prediction]").forEach(function (button) {
+      button.setAttribute("aria-pressed", button.getAttribute("data-intro-prediction") === state.introPrediction ? "true" : "false");
+    });
+  }
+
+  function enterIntro() {
+    state.introStep = 0;
+    state.introPrompt = "";
+    state.introPrediction = "correlated";
+    root.classList.add("intro-mode");
+    document.getElementById("intro-journey").hidden = false;
+    document.getElementById("intro-replay").classList.remove("is-visible");
+    setIntroStep(0);
+  }
+
+  function exitIntro() {
+    var prompt = document.getElementById("intro-prompt").value.trim();
+    if (prompt) state.introPrompt = prompt;
+    root.classList.remove("intro-mode");
+    document.getElementById("intro-journey").hidden = true;
+    document.getElementById("intro-replay").classList.add("is-visible");
+    if (state.introPrompt) document.getElementById("task-input").value = state.introPrompt;
+  }
+
+  function handleIntroAction() {
+    if (state.introStep === 0) {
+      setIntroStep(1);
+      window.setTimeout(function () { document.getElementById("intro-prompt").focus(); }, 0);
+      return;
+    }
+    if (state.introStep === 1) {
+      var prompt = document.getElementById("intro-prompt").value.trim();
+      if (!prompt) {
+        document.getElementById("intro-copy").textContent = "先写下你真正好奇的一句话，哪怕它还不够准确。";
+        document.getElementById("intro-prompt").focus();
+        return;
+      }
+      state.introPrompt = prompt;
+      setIntroStep(2);
+      return;
+    }
+    if (state.introStep === 3) {
+      setIntroStep(4);
+      return;
+    }
+    if (state.introStep === 4) {
+      var experimentPrompt = state.introPrompt || "我想看看两个比特会不会一起出现";
+      exitIntro();
+      runExperiment(experimentPrompt, state.introPrediction, "local");
+    }
+  }
 
   function resizeCanvas() {
     var rect = canvas.getBoundingClientRect();
@@ -299,8 +410,8 @@
     state.running = true;
     document.getElementById("task-input").value = prompt;
     if (presetPrediction) { var radio = document.querySelector("input[name=prediction][value=" + presetPrediction + "]"); if (radio) radio.checked = true; }
-    var runButton = document.getElementById("run-button"); runButton.disabled = true; runButton.textContent = requestedMode === "local" ? "本地模拟中…" : "智能体正在协作…";
-    state.data = null; document.getElementById("top-status").textContent = requestedMode === "local" ? "LOCAL SIMULATOR / WORKING" : "AGENT ROUTE / WORKING"; document.getElementById("stage-live").textContent = "过程展开中";
+    var runButton = document.getElementById("run-button"); runButton.disabled = true; runButton.textContent = requestedMode === "local" ? "舞步排练中…" : "洞穴正在听…";
+    state.data = null; document.getElementById("top-status").textContent = requestedMode === "local" ? "LOCAL SIMULATOR / WORKING" : "AGENT ROUTE / WORKING"; document.getElementById("stage-live").textContent = "舞步展开中"; document.getElementById("shadow-state").textContent = "· · ·"; document.getElementById("shadow-caption").textContent = "舞步正在暗处展开。"; document.getElementById("stage-note").textContent = "先把这句话变成一段可以重复的路径。";
     ["intent", "circuit", "critic", "simulator"].forEach(function (name, index) { window.setTimeout(function () { if (runId === state.runId) setAgent(name, index); }, index * 180); });
     await sleep(720);
     if (runId !== state.runId) return;
@@ -318,12 +429,12 @@
         renderResult(data);
         document.getElementById("top-status").textContent = data.mode === "agent" ? "AGENT · COMPLETE" : (data.fallback_reason ? "LOCAL FALLBACK · COMPLETE" : "LOCAL SIMULATOR · COMPLETE");
       }
-      document.getElementById("stage-live").textContent = "出口已打开";
+      document.getElementById("stage-live").textContent = "影子已回来";
     } catch (error) {
       if (runId !== state.runId) return;
-      setAgent("intent", 0); document.getElementById("stage-live").textContent = "需要重新输入"; document.getElementById("stage-note").textContent = "这次实验没有完成：" + error.message; document.getElementById("top-status").textContent = "LOCAL SIMULATOR · RETRY";
+      setAgent("intent", 0); document.getElementById("stage-live").textContent = "舞步中断"; document.getElementById("stage-note").textContent = "这次舞步没有完成：" + error.message; document.getElementById("top-status").textContent = "LOCAL SIMULATOR · RETRY";
     } finally {
-      if (runId === state.runId) { state.running = false; runButton.disabled = false; runButton.textContent = "开始一次观测"; }
+      if (runId === state.runId) { state.running = false; runButton.disabled = false; runButton.textContent = "让舞步开始"; }
     }
   }
 
@@ -377,6 +488,15 @@
   }
 
   document.querySelectorAll(".agent-node").forEach(function (node) { node.addEventListener("click", function () { setAgent(node.getAttribute("data-agent")); }); });
+  document.getElementById("intro-action").addEventListener("click", handleIntroAction);
+  document.getElementById("intro-skip").addEventListener("click", function () { exitIntro(); document.getElementById("task-input").focus(); });
+  document.getElementById("intro-replay").addEventListener("click", enterIntro);
+  document.querySelectorAll("[data-intro-prediction]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      state.introPrediction = button.getAttribute("data-intro-prediction");
+      setIntroStep(3);
+    });
+  });
   document.querySelectorAll(".preset").forEach(function (button) { button.addEventListener("click", function () { if (state.running) return; document.querySelectorAll(".preset").forEach(function (item) { item.setAttribute("aria-pressed", "false"); }); button.setAttribute("aria-pressed", "true"); runExperiment(button.getAttribute("data-prompt"), button.getAttribute("data-prediction"), "local"); }); });
   document.getElementById("run-button").addEventListener("click", function () { runExperiment(null, null, "auto"); });
   document.getElementById("observation-range").addEventListener("input", function (event) { updateObservation(event.target.value); });
@@ -385,7 +505,7 @@
   canvas.addEventListener("pointerleave", function () { pointer.active = false; });
   canvas.addEventListener("click", function (event) { var rect = canvas.getBoundingClientRect(), x = event.clientX - rect.left, y = event.clientY - rect.top, closest = null, distance = 9999; particles.forEach(function (p) { var dx = p.x - x, dy = p.y - y, d = dx * dx + dy * dy; if (d < distance) { distance = d; closest = p; } }); if (closest && distance < 12000) { document.getElementById("stage-note").textContent = "你点中了一个状态样本：它只能告诉你一个出口影子，不能替代完整量子态。"; } });
   window.addEventListener("resize", function () { resizeCanvas(); seedParticles(); });
-  resizeCanvas(); seedParticles(); updateObservation(35); updateShots(1024); setAgent("intent", 0); draw();
+  resizeCanvas(); seedParticles(); updateObservation(35); updateShots(1024); enterIntro(); draw();
 }());
 </script>
 </body>
