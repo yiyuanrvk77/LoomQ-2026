@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 """LoomQ 网页演示入口（L2 交互体验）。
 
-本地起一个小服务，浏览器里输入一句话，就调用 agent_chat 生成/修复电路，
-并在本地模拟器上跑出测量结果，画成条形图。零第三方依赖，只用标准库。
+本地起一个小服务，浏览器里可以先在 Quantum Cave 中完成「预测 → Agent 协作
+→ 观测 → 本地模拟」；入口会优先走配置好的 Agent，`/classic` 保留完整的开放式工作台。
+零第三方依赖，只用标准库。
 
 用法：
-    先配置模型（三种方式任选其一）——
-      1) 把 starter_kit/.env 写好（见 .env.example）
-      2) 或先 export 三个 LOOMQ_LLM_* 环境变量
-    然后：
+    直接运行本地洞穴实验（无需 Key）：
       python3 starter_kit/web_demo.py [端口]
     浏览器打开 http://127.0.0.1:8000
 """
@@ -17,9 +15,11 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import urlsplit
 
 try:
     import adapter
@@ -93,6 +93,90 @@ def _circuit_summary(circuit) -> str:
     return "这是你生成的量子电路：每一根柱子代表某个测量结果出现的概率。"
 
 
+def _offline_qasm(prompt: str) -> str | None:
+    """将常见的教学意图映射到本地模板，保证无 Key 也能完成演示链路。"""
+    text = prompt.lower()
+    if any(word in text for word in ("平台", "后端", "排队", "价格", "真机", "job_id")):
+        return None
+    if "grover" in text or "搜索" in text or "oracle" in text:
+        return adapter.grover_3(7)
+    match = re.search(r"(\d+)\s*(?:比特|qubit)", text)
+    qubits = max(2, min(int(match.group(1)), 5)) if match else 3
+    if "ghz" in text or "格林" in text or "全同" in text:
+        lines = [
+            "OPENQASM 2.0;",
+            'include "qelib1.inc";',
+            f"qreg q[{qubits}];",
+            f"creg c[{qubits}];",
+            "h q[0];",
+        ]
+        lines += [f"cx q[{i}],q[{i + 1}];" for i in range(qubits - 1)]
+        lines += [f"measure q[{i}] -> c[{i}];" for i in range(qubits)]
+        return "\n".join(lines)
+    if any(word in text for word in ("bell", "贝尔", "纠缠", "entangle", "一起出现", "同时出现", "相关结果")):
+        return """OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[2];
+creg c[2];
+h q[0];
+cx q[0],q[1];
+measure q[0] -> c[0];
+measure q[1] -> c[1];"""
+    if any(word in text for word in ("叠加", "superposition", "单比特", "测量", "概率", "随机")):
+        if "确定态" in text or "x 门" in text:
+            return """OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[1];
+creg c[1];
+x q[0];
+measure q[0] -> c[0];"""
+        return """OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[1];
+creg c[1];
+h q[0];
+measure q[0] -> c[0];"""
+    return None
+
+
+def _is_model_configuration_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return any(
+        marker in message
+        for marker in ("loomq_llm", "environment variable", "api is unreachable", "timed out", "timeout")
+    )
+
+
+def _experiment_card(circuit, mode: str) -> dict:
+    names = [g.name for g in circuit.gates]
+    if circuit.num_qubits == 1 and names == ["h"]:
+        goal = "观察一个比特从确定态进入叠加态。"
+        hypothesis = "测量前有两种可能，测量后会坍缩到 0 或 1。"
+        prediction = "0 和 1 的概率大致各占一半。"
+        next_step = "把 H 门换成 X 门，比较确定态和叠加态。"
+        followup_prompt = "把 H 门换成 X 门，比较确定态和叠加态"
+    elif "cx" in names and circuit.num_qubits >= 2:
+        goal = "观察多个比特如何通过受控门形成相关性。"
+        hypothesis = "纠缠态被测量后，相关比特会更倾向于同时出现。"
+        prediction = "GHZ 的主峰应集中在全 0 与全 1；Bell 的主峰是 00 与 11。"
+        next_step = "提高 shots，或打开噪声模拟，观察主峰如何扩散。"
+        followup_prompt = "再运行一个 3 比特 GHZ 纠缠态并打开噪声模拟"
+    else:
+        goal = "把自然语言意图变成可验证的量子实验。"
+        hypothesis = "电路结构会决定测量结果的理想分布。"
+        prediction = "采样结果的主峰应接近理想概率分布。"
+        next_step = "继续修改 QASM，再运行一次比较差异。"
+        followup_prompt = "生成一个叠加态并测量"
+    return {
+        "mode": mode,
+        "goal": goal,
+        "hypothesis": hypothesis,
+        "prediction": prediction,
+        "next_step": next_step,
+        "followup_prompt": followup_prompt,
+    }
+
+
 HTML = """<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -100,10 +184,11 @@ HTML = """<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LoomQ · 说一句话，指挥量子计算</title>
 <style>
-  body { font-family: system-ui, "Microsoft YaHei", sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; color: #1a1a1a; }
+  body { font-family: system-ui, "Microsoft YaHei", sans-serif; max-width: 860px; margin: 32px auto; padding: 0 20px; color: #172033; background: #fbfcfe; }
   h1 { font-size: 1.45em; }
   textarea { width: 100%; height: 72px; padding: 10px; font-size: 15px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
-  button { margin-top: 10px; padding: 10px 22px; font-size: 15px; cursor: pointer; background: #2563eb; color: #fff; border: 0; border-radius: 6px; }
+  button { margin-top: 10px; padding: 10px 18px; font-size: 15px; cursor: pointer; background: #2563eb; color: #fff; border: 0; border-radius: 6px; }
+  button:hover { filter: brightness(1.08); }
   #result { margin-top: 20px; }
   pre { background: #f6f8fa; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 13px; white-space: pre-wrap; }
   .bar-row { display: flex; align-items: center; margin: 4px 0; }
@@ -131,6 +216,23 @@ HTML = """<!doctype html>
   .cmp-val { width: 76px; font-size: 12px; color: #555; }
   .legend { margin-top: 6px; font-size: 12px; color: #555; }
   .legend span { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 3px; vertical-align: middle; }
+  .journey { margin: 18px 0 20px; padding: 18px; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; }
+  .journey-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .journey-head h2 { font-size: 1.1em; margin: 0; }
+  .mode-chip { color: #166534; background: #dcfce7; border-radius: 999px; padding: 4px 9px; font-size: 12px; white-space: nowrap; }
+  .phase-map { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 16px 0; }
+  .phase-node { margin: 0; padding: 10px 6px; color: #334155; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; }
+  .phase-node.done { color: #075985; border-color: #38bdf8; background: #f0f9ff; }
+  .phase-node.active { color: #854d0e; border-color: #f59e0b; background: #fffbeb; }
+  .phase-node small { display: block; margin-top: 4px; color: #64748b; }
+  .demo-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .demo-actions button { margin-top: 0; background: #0f766e; }
+  .experiment { margin: 14px 0; border-left: 4px solid #0f766e; padding: 12px 14px; background: #ecfeff; }
+  .experiment-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; }
+  .experiment-grid p { margin: 5px 0; line-height: 1.55; }
+  .experiment-grid b { color: #155e75; }
+  .followup { margin-top: 8px; background: #475569; }
+  @media (max-width: 620px) { .phase-map { grid-template-columns: repeat(2, 1fr); } .experiment-grid { grid-template-columns: 1fr; } .journey-head { align-items: flex-start; flex-direction: column; } }
 </style>
 </head>
 <body>
@@ -138,6 +240,17 @@ HTML = """<!doctype html>
   <p class="field-label">粒子 = 量子比特 · 连线 = 纠缠 · 鼠标靠近 = 测量扰动</p>
   <h1>LoomQ · 说一句话，指挥量子计算</h1>
   <p class="hint">试试：生成一个 3 比特的 GHZ 纠缠态并全测量；或：15 比特零排队免费选哪个平台？</p>
+  <section class="journey" aria-label="量子实验流程">
+    <div class="journey-head"><h2>从一句话到一次实验</h2><span id="mode-chip" class="mode-chip">本地模式可用 · 无需 Key</span></div>
+    <p class="hint">把过程拆成四个可观察阶段：理解意图、构建电路、验证分布、读取证据。</p>
+    <div class="phase-map" id="phase-map">
+      <button class="phase-node" data-phase="intent">① 理解意图<small>自然语言</small></button>
+      <button class="phase-node" data-phase="build">② 构建电路<small>QASM</small></button>
+      <button class="phase-node" data-phase="verify">③ 验证假设<small>理想 / 噪声</small></button>
+      <button class="phase-node" data-phase="measure">④ 读取证据<small>counts</small></button>
+    </div>
+    <div class="demo-actions"><span class="hint">先用本地模板试跑：</span><button class="offline-demo" data-prompt="生成一个 3 比特 GHZ 纠缠态并全测量">GHZ 纠缠</button><button class="offline-demo" data-prompt="做一个 Bell 态并测量">Bell 纠缠</button><button class="offline-demo" data-prompt="生成一个叠加态">叠加态</button></div>
+  </section>
   <div class="guide">
     <b>三步玩懂量子计算（零基础也能玩）：</b>
     <ol>
@@ -321,15 +434,26 @@ classical { if (c[0] == 1) { r1 = 7; } else { r1 = 3; } }
     draw();
   })();
 
-  document.getElementById('go').addEventListener('click', function () {
-    var prompt = document.getElementById('prompt').value.trim();
+  function requestExperiment(prompt, mode) {
     var result = document.getElementById('result');
     if (!prompt) { result.innerHTML = '<p class="error">请输入内容。</p>'; return; }
-    result.innerHTML = '<p>正在生成……</p>';
-    fetch('/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: prompt }) })
+    document.getElementById('prompt').value = prompt;
+    renderJourney({ phase: 'intent', mode: mode || 'agent' });
+    result.innerHTML = '<p>正在理解意图、构建电路并运行本地验证……</p>';
+    fetch('/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: prompt, mode: mode || 'agent' }) })
       .then(function (r) { return r.json(); })
       .then(function (data) { render(data); })
       .catch(function (e) { result.innerHTML = '<p class="error">请求失败：' + e + '</p>'; });
+  }
+
+  document.getElementById('go').addEventListener('click', function () {
+    requestExperiment(document.getElementById('prompt').value.trim(), 'agent');
+  });
+
+  document.querySelectorAll('.offline-demo').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      requestExperiment(btn.getAttribute('data-prompt'), 'local');
+    });
   });
 
   document.getElementById('transpile-btn').addEventListener('click', function () {
@@ -350,7 +474,7 @@ classical { if (c[0] == 1) { r1 = 7; } else { r1 = 3; } }
       result.innerHTML = '<p>正在运行算法……</p>';
       fetch('/preset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name }) })
         .then(function (r) { return r.json(); })
-        .then(function (data) { render(data); })
+      .then(function (data) { render(data); })
         .catch(function (e) { result.innerHTML = '<p class="error">请求失败：' + e + '</p>'; });
     });
   });
@@ -379,17 +503,46 @@ classical { if (c[0] == 1) { r1 = 7; } else { r1 = 3; } }
 
   function render(data) {
     var el = document.getElementById('result');
+    renderJourney(data);
     if (!data.ok) { el.innerHTML = '<p class="error">' + escapeHtml(data.error) + '</p>'; return; }
     if (data.kind === 'answer') {
       el.innerHTML = '<p>' + escapeHtml(data.answer) + '</p>';
       return;
     }
-    var html = '<p class="hint">电路图：</p>' + renderCircuit(data);
+    var html = renderExperiment(data) + '<p class="hint">电路图：</p>' + renderCircuit(data);
     if (data.summary) { html += '<div class="guide">' + escapeHtml(data.summary) + '</div>'; }
     html += '<p class="hint">已生成电路（OpenQASM 2.0）：</p><pre>' + escapeHtml(data.qasm) + '</pre>';
     html += renderCompare(data);
     el.innerHTML = html;
     if (window.setQuantumField) { window.setQuantumField(data.num_qubits); }
+  }
+
+  function renderJourney(data) {
+    var nodes = document.querySelectorAll('.phase-node');
+    var order = ['intent', 'build', 'verify', 'measure'];
+    var phase = data.phase || (data.ok && data.kind === 'qasm' ? 'measure' : 'intent');
+    var current = order.indexOf(phase);
+    nodes.forEach(function (node) {
+      var index = order.indexOf(node.getAttribute('data-phase'));
+      node.classList.toggle('done', current >= 0 && index <= current);
+      node.classList.toggle('active', index === current);
+    });
+    var chip = document.getElementById('mode-chip');
+    if (chip) { chip.textContent = data.mode === 'local' ? '本地模式 · 无需 Key' : '智能体模式 · 可接模型'; }
+  }
+
+  function renderExperiment(data) {
+    if (!data.experiment) { return ''; }
+    var card = data.experiment;
+    var html = '<div class="experiment"><b>实验卡 · ' + (data.mode === 'local' ? '本地模拟' : '智能体生成') + '</b>';
+    html += '<div class="experiment-grid">';
+    html += '<p><b>目标</b><br>' + escapeHtml(card.goal) + '</p>';
+    html += '<p><b>假设</b><br>' + escapeHtml(card.hypothesis) + '</p>';
+    html += '<p><b>预测</b><br>' + escapeHtml(card.prediction) + '</p>';
+    html += '<p><b>本次证据</b><br>' + escapeHtml(data.result_note || '已完成采样。') + '</p>';
+    html += '</div><p><b>下一步</b> ' + escapeHtml(card.next_step) + '</p>';
+    html += '<button class="followup" data-followup="' + escapeHtml(card.followup_prompt || card.next_step) + '">继续做一个对照实验</button></div>';
+    return html;
   }
 
   function gateLabel(g) {
@@ -479,6 +632,11 @@ classical { if (c[0] == 1) { r1 = 7; } else { r1 = 3; } }
     el.innerHTML = html;
   }
 
+  document.addEventListener('click', function (event) {
+    var button = event.target.closest ? event.target.closest('[data-followup]') : null;
+    if (button) { requestExperiment(button.getAttribute('data-followup'), 'local'); }
+  });
+
   function escapeHtml(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
@@ -489,16 +647,34 @@ classical { if (c[0] == 1) { r1 = 7; } else { r1 = 3; } }
 
 
 class Handler(BaseHTTPRequestHandler):
+    MAX_BODY_BYTES = 1_000_000
+
     def do_GET(self) -> None:
+        request_path = urlsplit(self.path).path
+        if request_path in ("/", "/cave-lab.html"):
+            file = Path(__file__).parent / "visualizations" / "quantum-cave.html"
+            if not file.is_file():
+                self._send_plain(500, "Quantum Cave 页面文件缺失，请确认 starter_kit/visualizations/quantum-cave.html 已提交。")
+                return
+            self._send_bytes(200, "text/html; charset=utf-8", file.read_bytes())
+            return
+        if request_path == "/classic":
+            body = HTML.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         # 静态文件：量子纠错可视化实验室（visualizations/*.html）
-        if self.path.startswith("/visualizations/"):
-            self._serve_visualization(self.path)
+        if request_path.startswith("/visualizations/"):
+            self._serve_visualization(request_path)
             return
         # 可视化页里「回 QUANTUM_101」等文档链接
-        if self.path.startswith("/QUANTUM_101.md"):
+        if request_path.startswith("/QUANTUM_101.md"):
             self._serve_doc("QUANTUM_101.md")
             return
-        if self.path.startswith("/ARCHITECTURE.md"):
+        if request_path.startswith("/ARCHITECTURE.md"):
             self._serve_doc("ARCHITECTURE.md")
             return
         body = HTML.encode("utf-8")
@@ -543,41 +719,74 @@ class Handler(BaseHTTPRequestHandler):
         self._send_bytes(code, "text/plain; charset=utf-8", text.encode("utf-8"))
 
     def do_POST(self) -> None:
-        length = int(self.headers.get("Content-Length", "0"))
+        data = {}
         try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if length < 0 or length > self.MAX_BODY_BYTES:
+                self.rfile.read(min(max(length, 0), self.MAX_BODY_BYTES + 1))
+                self.close_connection = True
+                self._json({"ok": False, "error": "请求内容过大，请缩短输入后重试。"}, code=413)
+                return
             data = json.loads(self.rfile.read(length) or b"{}")
-            if self.path == "/transpile":
+            if not isinstance(data, dict):
+                self._json({"ok": False, "error": "请求格式必须是 JSON 对象。"}, code=400)
+                return
+            request_path = urlsplit(self.path).path
+            if request_path == "/transpile":
                 self._handle_transpile(data)
                 return
-            if self.path == "/preset":
+            if request_path == "/experiment":
+                self._handle_experiment(data)
+                return
+            if request_path == "/preset":
                 self._handle_preset(data)
                 return
-            if self.path == "/compile":
+            if request_path == "/compile":
                 self._handle_compile(data)
                 return
-            if self.path == "/concept":
+            if request_path == "/concept":
                 self._handle_concept(data)
                 return
             prompt = (data.get("prompt") or "").strip()
             if not prompt:
                 self._json({"ok": False, "error": "请输入一句想做的事。"})
                 return
+            if data.get("mode") == "local":
+                qasm = _offline_qasm(prompt)
+                if qasm:
+                    self._json(self._run_payload(qasm, mode="local"))
+                    return
+                self._json({"ok": False, "error": "本地模板暂时支持 GHZ、Bell、叠加态和 Grover，请换一种说法。"})
+                return
             reply = adapter.agent_chat(prompt)
             if "OPENQASM" in reply:
                 self._json(self._run_payload(reply))
             else:
                 self._json({"ok": True, "kind": "answer", "answer": reply})
+        except json.JSONDecodeError as exc:
+            self._json({"ok": False, "error": "请求不是合法 JSON：%s" % exc}, code=400)
         except Exception as exc:  # noqa: BLE001
             message = str(exc) or exc.__class__.__name__
-            if "LOOMQ_LLM" in message or "environment variable" in message.lower():
+            if _is_model_configuration_error(exc):
+                qasm = _offline_qasm((data or {}).get("prompt") or "")
+                if qasm:
+                    self._json(self._run_payload(qasm, mode="local", fallback_reason="未配置模型，已切换到本地模板。"))
+                    return
                 message = (
                     "缺少模型配置：请设置 LOOMQ_LLM_BASE_URL / LOOMQ_LLM_API_KEY / "
-                    "LOOMQ_LLM_MODEL，或写进 starter_kit/.env（参考 .env.example）。"
+                    "LOOMQ_LLM_MODEL，或使用上方本地实验入口。"
                 )
             self._json({"ok": False, "error": message})
 
-    def _run_payload(self, qasm: str) -> dict:
-        result = adapter.run(qasm, "braket", 1024)
+    def _run_payload(
+        self,
+        qasm: str,
+        mode: str = "agent",
+        fallback_reason: str | None = None,
+        shots: int = 1024,
+    ) -> dict:
+        shots = max(100, min(int(shots), 4096))
+        result = adapter.run(qasm, "braket", shots)
         circuit = adapter.parse(qasm)
         ideal = adapter.probabilities(circuit)
         diagram = _circuit_diagram(qasm)
@@ -587,7 +796,10 @@ class Handler(BaseHTTPRequestHandler):
             and sorted(g.name for g in circuit.gates) == ["cx", "h"]
         )
         real = _load_real_bell() if is_bell else None
-        noisy_counts = adapter.simulate_with_noise(circuit, 1024, 0.03)
+        noisy_counts = adapter.simulate_with_noise(circuit, shots, 0.03)
+        top_key = max(result["counts"], key=result["counts"].get) if result["counts"] else ""
+        top_count = result["counts"].get(top_key, 0)
+        result_note = "主峰 %s，占本次采样 %.1f%%。" % (top_key, top_count * 100 / max(shots, 1))
         return {
             "ok": True,
             "kind": "qasm",
@@ -596,11 +808,86 @@ class Handler(BaseHTTPRequestHandler):
             "counts": result["counts"],
             "shots": result["shots"],
             "ideal": ideal,
-            "noisy": {k: v / 1024 for k, v in noisy_counts.items()},
+            "noisy": {k: v / shots for k, v in noisy_counts.items()},
             "gates": diagram["gates"],
             "num_qubits": diagram["num_qubits"],
             "real": real,
+            "mode": mode,
+            "phase": "measure",
+            "phases": ["intent", "build", "verify", "measure"],
+            "experiment": _experiment_card(circuit, mode),
+            "result_note": result_note,
+            "fallback_reason": fallback_reason,
         }
+
+    def _handle_experiment(self, data: dict) -> None:
+        prompt = (data.get("prompt") or "").strip()
+        if not prompt:
+            self._json({"ok": False, "error": "先说一句你想观察的量子现象。"})
+            return
+        requested_mode = str(data.get("mode", "auto") or "auto").lower()
+        if requested_mode not in ("local", "agent", "auto"):
+            self._json({"ok": False, "error": "未知运行模式，请选择 auto、agent 或 local。"}, code=400)
+            return
+        mode = requested_mode
+        raw_shots = data.get("shots", 1024)
+        raw_observation = data.get("observation", 35)
+        shots = max(100, min(int(raw_shots), 4096))
+        observation = max(0, min(int(raw_observation), 100))
+        fallback_reason = None
+        try:
+            qasm = _offline_qasm(prompt) if mode == "local" else None
+            if qasm is None and mode in ("agent", "auto"):
+                try:
+                    reply = adapter.agent_chat(prompt)
+                except Exception as exc:  # noqa: BLE001
+                    if mode != "auto" or not _is_model_configuration_error(exc):
+                        raise
+                    qasm = _offline_qasm(prompt)
+                    if qasm:
+                        mode = "local"
+                        fallback_reason = "模型不可用，已切换到本地模板。"
+                    else:
+                        raise
+                else:
+                    if "OPENQASM" in reply:
+                        qasm = reply
+                        mode = "agent"
+                    else:
+                        self._json({"ok": True, "kind": "answer", "answer": reply, "mode": "agent"})
+                        return
+            if qasm is None:
+                self._json({"ok": False, "error": "本地实验暂时支持 GHZ、Bell、叠加态和 Grover。"})
+                return
+            payload = self._run_payload(qasm, mode=mode, fallback_reason=fallback_reason, shots=shots)
+            payload["observation"] = observation
+            payload["observation_note"] = (
+                "观测较少：洞内影子稀疏，保留更多未知感。"
+                if observation < 35
+                else "观测增强：影子更稳定，但它仍然只是测量后的投影，不是完整量子态。"
+                if observation < 70
+                else "观测频繁：影子最稳定。这里用它表达洞穴隐喻，QASM 仍按末端测量执行。"
+            )
+            self._json(payload)
+        except json.JSONDecodeError as exc:
+            self._json({"ok": False, "error": "请求不是合法 JSON：%s" % exc}, code=400)
+        except Exception as exc:  # noqa: BLE001
+            message = str(exc) or exc.__class__.__name__
+            if _is_model_configuration_error(exc):
+                fallback = _offline_qasm(prompt)
+                if fallback:
+                    payload = self._run_payload(
+                        fallback,
+                        mode="local",
+                        fallback_reason="未配置模型，已切换到本地模板。",
+                        shots=shots,
+                    )
+                    payload["observation"] = observation
+                    payload["observation_note"] = "模型不可用，已保留本地洞穴实验链路。"
+                    self._json(payload)
+                    return
+                message = "缺少模型配置；请先使用本地实验模板，或设置 LOOMQ_LLM_*。"
+            self._json({"ok": False, "error": message})
 
     def _handle_preset(self, data: dict) -> None:
         presets = {
@@ -612,7 +899,7 @@ class Handler(BaseHTTPRequestHandler):
         if name not in presets:
             self._json({"ok": False, "error": "未知算法"})
             return
-        self._json(self._run_payload(presets[name]))
+        self._json(self._run_payload(presets[name], mode="local"))
 
     def _handle_compile(self, data: dict) -> None:
         hybrid = (data.get("hybrid") or "").strip()
@@ -660,9 +947,9 @@ class Handler(BaseHTTPRequestHandler):
             results[target] = adapter.transpile(qasm, target)
         self._json({"ok": True, "kind": "transpile", "labels": labels, "results": results})
 
-    def _json(self, obj: dict) -> None:
+    def _json(self, obj: dict, code: int = 200) -> None:
         body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
-        self.send_response(200)
+        self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()

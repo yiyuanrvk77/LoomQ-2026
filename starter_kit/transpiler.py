@@ -53,6 +53,7 @@ _BRAKET_GATES = {
 def _emit_braket(circ: Circuit) -> str:
     lines = [
         "OPENQASM 3.0;",
+        'include "stdgates.inc";',
         f"qubit[{circ.num_qubits}] q;",
         f"bit[{circ.num_clbits}] c;",
     ]

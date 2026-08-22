@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LoomQ Quantum Cave</title>
+<style>
+  :root { --void:#071019; --deep:#0b1722; --surface:#101d29; --surface-2:#142534; --line:#274052; --ink:#e9f1f0; --muted:#8ea5aa; --faint:#60757b; --teal:#6fe7d9; --cyan:#82c7ff; --amber:#f2c66d; --rose:#ee8eaa; --green:#9be4a8; --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace; }
+  * { box-sizing:border-box; }
+  html { background:var(--void); }
+  body { margin:0; min-width:320px; background:var(--void); color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif; line-height:1.5; }
+  button,input,textarea { font:inherit; }
+  button { cursor:pointer; }
+  button:focus-visible,input:focus-visible,textarea:focus-visible { outline:2px solid var(--amber); outline-offset:3px; }
+  .app { width:min(1500px,100%); margin:0 auto; padding:24px 28px 40px; }
+  .topbar { display:flex; align-items:center; justify-content:space-between; gap:18px; border-bottom:1px solid var(--line); padding-bottom:18px; }
+  .brand { display:flex; align-items:center; gap:12px; }
+  .brand-mark { width:34px; height:34px; border:1px solid var(--teal); border-radius:50%; position:relative; }
+  .brand-mark:before,.brand-mark:after { content:""; position:absolute; border:1px solid currentColor; border-radius:50%; inset:7px 3px; color:var(--amber); transform:rotate(28deg); }
+  .brand-mark:after { inset:3px 7px; color:var(--cyan); transform:rotate(-28deg); }
+  .brand strong { display:block; font-size:15px; letter-spacing:.08em; }
+  .brand small { display:block; color:var(--muted); font:11px var(--mono); margin-top:1px; }
+  .top-actions { display:flex; align-items:center; gap:10px; }
+  .top-status { color:var(--teal); font:12px var(--mono); }
+  .ghost-link { color:var(--muted); text-decoration:none; border-bottom:1px solid transparent; font-size:13px; }
+  .ghost-link:hover { color:var(--ink); border-color:var(--teal); }
+  .lab-grid { display:grid; grid-template-columns:238px minmax(0,1fr) 300px; gap:20px; padding-top:24px; }
+  .agent-rail { min-width:0; }
+  .eyebrow { color:var(--amber); font:11px var(--mono); letter-spacing:.14em; text-transform:uppercase; margin:0 0 8px; }
+  h1 { font-size:clamp(24px,3vw,38px); line-height:1.08; letter-spacing:-.03em; margin:0; font-weight:700; }
+  .intro { color:var(--muted); font-size:13px; margin:12px 0 22px; }
+  .agent-chain { position:relative; display:grid; gap:4px; }
+  .agent-chain:before { content:""; position:absolute; left:18px; top:21px; bottom:21px; width:1px; background:var(--line); }
+  .agent-node { position:relative; display:grid; grid-template-columns:38px 1fr; gap:10px; align-items:center; min-height:66px; border:0; border-left:1px solid transparent; padding:8px 8px 8px 0; text-align:left; background:transparent; color:var(--muted); }
+  .agent-node:hover { color:var(--ink); background:#0c1924; }
+  .agent-node[aria-pressed="true"] { color:var(--ink); border-left-color:var(--amber); background:#13232d; }
+  .agent-orb { z-index:1; display:grid; place-items:center; width:36px; height:36px; border:1px solid var(--line); border-radius:50%; background:var(--deep); color:var(--faint); font:11px var(--mono); }
+  .agent-node.done .agent-orb { border-color:var(--teal); color:var(--teal); }
+  .agent-node.active .agent-orb { border-color:var(--amber); color:var(--amber); box-shadow:0 0 0 4px rgba(242,198,109,.1); }
+  .agent-node strong { display:block; font-size:13px; font-weight:650; }
+  .agent-node small { display:block; color:var(--faint); font-size:11px; margin-top:3px; }
+  .agent-inspector { border-top:1px solid var(--line); margin-top:22px; padding-top:16px; }
+  .inspector-label { color:var(--faint); font:11px var(--mono); }
+  .agent-inspector h2 { font-size:17px; margin:7px 0 6px; }
+  .agent-inspector p { color:var(--muted); font-size:12px; margin:0; }
+  .agent-output { margin-top:13px; color:var(--teal); font:11px/1.6 var(--mono); white-space:pre-wrap; }
+  .stage-column { min-width:0; }
+  .stage-head { display:flex; justify-content:space-between; align-items:end; gap:14px; margin-bottom:10px; }
+  .stage-head h2 { font-size:16px; margin:0; }
+  .stage-head p { color:var(--muted); font-size:12px; margin:3px 0 0; }
+  .stage-meter { color:var(--amber); font:12px var(--mono); white-space:nowrap; }
+  .stage { position:relative; min-height:560px; overflow:hidden; border:1px solid var(--line); background:#08131e; }
+  #quantum-cave-canvas { display:block; width:100%; height:100%; min-height:560px; cursor:crosshair; }
+  .stage-topline { position:absolute; left:20px; right:20px; top:17px; display:flex; justify-content:space-between; gap:10px; pointer-events:none; }
+  .stage-label { color:var(--muted); font:11px var(--mono); letter-spacing:.1em; }
+  .stage-live { color:var(--teal); font:11px var(--mono); }
+  .stage-center { position:absolute; left:50%; top:48%; transform:translate(-50%,-50%); width:min(78%,420px); text-align:center; pointer-events:none; }
+  .shadow-state { color:var(--amber); font:clamp(28px,5vw,58px) var(--mono); letter-spacing:.06em; text-shadow:0 0 26px rgba(242,198,109,.38); }
+  .shadow-caption { color:var(--muted); font-size:12px; margin-top:8px; }
+  .stage-note { min-height:22px; color:var(--ink); font-size:13px; margin-top:17px; }
+  .stage-bottom { position:absolute; left:20px; right:20px; bottom:16px; display:flex; justify-content:space-between; gap:14px; align-items:end; pointer-events:none; }
+  .stage-legend { color:var(--faint); font-size:11px; }
+  .legend-dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:5px; background:var(--teal); }
+  .observe-value { color:var(--amber); font:12px var(--mono); }
+  .control-rail { min-width:0; border-left:1px solid var(--line); padding-left:20px; }
+  .control-label { color:var(--faint); font:11px var(--mono); letter-spacing:.08em; }
+  .control-rail h2 { font-size:18px; margin:7px 0 5px; }
+  .control-rail .lede { color:var(--muted); font-size:12px; margin:0 0 16px; }
+  .prompt-form { display:grid; gap:8px; }
+  textarea { width:100%; min-height:86px; resize:vertical; border:1px solid var(--line); background:#091621; color:var(--ink); padding:11px; border-radius:3px; font-size:13px; line-height:1.55; }
+  textarea::placeholder { color:var(--faint); }
+  .run-button { border:1px solid var(--teal); background:var(--teal); color:#06211e; padding:11px 14px; border-radius:3px; font-weight:700; }
+  .run-button:hover { background:#a0f1e5; }
+  .preset-row { display:flex; flex-wrap:wrap; gap:6px; margin:12px 0 22px; }
+  .preset { color:var(--muted); border:1px solid var(--line); background:transparent; border-radius:3px; padding:6px 8px; font-size:11px; }
+  .preset:hover,.preset[aria-pressed="true"] { color:var(--amber); border-color:var(--amber); }
+  .control-block { border-top:1px solid var(--line); padding-top:16px; margin-top:16px; }
+  .control-row { display:flex; justify-content:space-between; gap:10px; align-items:center; color:var(--muted); font-size:12px; margin-bottom:8px; }
+  output { color:var(--amber); font:12px var(--mono); }
+  input[type="range"] { width:100%; accent-color:var(--amber); }
+  .range-caption { color:var(--faint); font-size:11px; margin-top:5px; }
+  .prediction-title { color:var(--ink); font-size:12px; margin:0 0 8px; }
+  .prediction-list { display:grid; gap:6px; }
+  .prediction { display:flex; gap:8px; align-items:center; color:var(--muted); font-size:12px; cursor:pointer; }
+  .prediction input { accent-color:var(--teal); }
+  .prediction:has(input:checked) { color:var(--teal); }
+  .prediction-result { min-height:36px; margin-top:14px; color:var(--muted); font-size:12px; }
+  .prediction-result.hit { color:var(--green); }
+  .prediction-result.miss { color:var(--rose); }
+  .bottom-grid { display:grid; grid-template-columns:minmax(0,1.25fr) minmax(0,1fr); gap:20px; margin-top:20px; }
+  .console-panel { min-width:0; border-top:1px solid var(--line); padding-top:16px; }
+  .console-head { display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+  .console-head h2 { font-size:15px; margin:0; }
+  .console-head span { color:var(--faint); font:11px var(--mono); }
+  .qasm-box { margin-top:10px; min-height:130px; padding:12px; overflow:auto; background:#091621; border:1px solid var(--line); color:#b5d5d2; font:11px/1.6 var(--mono); white-space:pre-wrap; }
+  .bars { display:grid; gap:8px; margin-top:12px; }
+  .result-group { border-top:1px solid rgba(39,64,82,.65); padding-top:8px; }
+  .result-group:first-child { border-top:0; padding-top:0; }
+  .result-key { color:var(--ink); font:12px var(--mono); margin-bottom:5px; }
+  .bar-row { display:grid; grid-template-columns:44px 1fr 48px; gap:7px; align-items:center; color:var(--muted); font:11px var(--mono); }
+  .bar-track { height:8px; background:#162733; overflow:hidden; }
+  .bar-fill { height:100%; transition:width .35s ease; }
+  .bar-fill.ideal { background:var(--teal); }
+  .bar-fill.sampled { background:var(--amber); }
+  .bar-fill.noisy { background:var(--cyan); }
+  .bar-fill.real { background:var(--rose); }
+  .evidence-note { color:var(--muted); font-size:12px; margin:13px 0 0; }
+  .evidence-note strong { color:var(--ink); font-weight:650; }
+  .empty-state { color:var(--faint); font-size:12px; padding:18px 0; }
+  .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+  @media (max-width:1180px) { .lab-grid { grid-template-columns:210px minmax(0,1fr); } .control-rail { grid-column:1 / -1; border-left:0; border-top:1px solid var(--line); padding:20px 0 0; display:grid; grid-template-columns:1.2fr .8fr; gap:26px; } .control-rail .control-block { margin-top:0; } }
+  @media (max-width:760px) { .app { padding:17px 14px 28px; } .topbar { align-items:flex-start; } .top-actions { flex-wrap:wrap; justify-content:flex-end; } .top-status { width:100%; text-align:right; order:2; } .lab-grid { grid-template-columns:1fr; gap:18px; } .agent-rail { display:grid; grid-template-columns:1fr 1fr; gap:14px; } .agent-rail h1,.agent-rail .intro { grid-column:1 / -1; } .agent-chain { grid-column:1 / -1; grid-template-columns:repeat(5,1fr); gap:4px; } .agent-chain:before { left:9%; right:9%; top:18px; bottom:auto; width:auto; height:1px; } .agent-node { display:block; min-height:0; padding:0; text-align:center; border:0; } .agent-node[aria-pressed="true"] { background:transparent; } .agent-orb { margin:0 auto 6px; width:34px; height:34px; } .agent-node strong { font-size:10px; white-space:nowrap; } .agent-node small { display:none; } .agent-inspector { margin-top:0; padding-top:0; border-top:0; } .stage { min-height:430px; } #quantum-cave-canvas { min-height:430px; } .bottom-grid { grid-template-columns:1fr; } .control-rail { display:block; } .control-rail .control-block { margin-top:16px; } }
+  @media (prefers-reduced-motion:reduce) { *,*:before,*:after { scroll-behavior:auto !important; transition:none !important; animation:none !important; } }
+</style>
+</head>
+<body>
+<div class="app" id="quantum-cave-app">
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"></span><div><strong>LOOMQ / QUANTUM CAVE</strong><small>一个可观察、可修改、可复现的量子实验</small></div></div>
+    <div class="top-actions"><span class="top-status" id="top-status">AUTO ROUTE · READY</span><a class="ghost-link" href="/visualizations/index.html">实验室索引</a><a class="ghost-link" href="/classic">完整 Agent 工作台</a></div>
+  </header>
+
+  <main class="lab-grid">
+    <aside class="agent-rail" aria-label="智能体协作图谱">
+      <div><p class="eyebrow">L2 / agent field</p><h1>让影子<br>自己说话。</h1><p class="intro">你先猜一次。智能体再把目标翻译成电路，质疑它，运行它，最后把证据带回洞口。</p></div>
+      <div class="agent-chain" role="list" aria-label="实验智能体阶段">
+        <button class="agent-node active" type="button" role="listitem" aria-pressed="true" data-agent="intent"><span class="agent-orb">01</span><span><strong>意图</strong><small>听懂你要看什么</small></span></button>
+        <button class="agent-node" type="button" role="listitem" aria-pressed="false" data-agent="circuit"><span class="agent-orb">02</span><span><strong>电路</strong><small>搭出可执行路径</small></span></button>
+        <button class="agent-node" type="button" role="listitem" aria-pressed="false" data-agent="critic"><span class="agent-orb">03</span><span><strong>质疑</strong><small>先写下预测</small></span></button>
+        <button class="agent-node" type="button" role="listitem" aria-pressed="false" data-agent="simulator"><span class="agent-orb">04</span><span><strong>模拟</strong><small>重复走过这条路</small></span></button>
+        <button class="agent-node" type="button" role="listitem" aria-pressed="false" data-agent="observer"><span class="agent-orb">05</span><span><strong>观测</strong><small>把影子带回来</small></span></button>
+      </div>
+      <div class="agent-inspector" aria-live="polite"><span class="inspector-label">SELECTED AGENT</span><h2 id="agent-title">意图翻译</h2><p id="agent-copy">把你的话变成一个可以被验证的实验目标。</p><div class="agent-output" id="agent-output">等待输入…</div></div>
+    </aside>
+
+    <section class="stage-column" aria-label="量子洞穴主舞台">
+      <div class="stage-head"><div><h2>洞内观测场</h2><p>粒子是状态样本，连线是关联，中央的影子是测量后留下的证据。</p></div><span class="stage-meter" id="stage-meter">PHASE 01 / 05</span></div>
+      <div class="stage">
+        <canvas id="quantum-cave-canvas" aria-label="可点击的量子状态粒子场"></canvas>
+        <div class="stage-topline"><span class="stage-label">THE CAVE / PROJECTED REALITY</span><span class="stage-live" id="stage-live">等待实验</span></div>
+        <div class="stage-center"><div class="shadow-state" id="shadow-state">· · ·</div><div class="shadow-caption" id="shadow-caption">还没有影子。先给洞穴一个问题。</div><div class="stage-note" id="stage-note">点击粒子，可以查看一个被抽出的状态样本。</div></div>
+        <div class="stage-bottom"><span class="stage-legend"><i class="legend-dot"></i>可观测样本 <span id="particle-count">72</span></span><span class="observe-value">观测 <b id="observe-stage-value">35%</b></span></div>
+      </div>
+    </section>
+
+    <aside class="control-rail" aria-label="实验控制台">
+      <div>
+        <span class="control-label">EXPERIMENT / 01</span><h2>先提出一个问题</h2><p class="lede">不要先写 QASM。告诉洞穴你想区分什么。</p>
+        <div class="prompt-form"><label class="sr-only" for="task-input">实验目标</label><textarea id="task-input" placeholder="例如：我想看看两个比特会不会一起出现"></textarea><button class="run-button" id="run-button" type="button">开始一次观测</button></div>
+        <div class="preset-row" aria-label="实验预设"><button class="preset" type="button" data-prompt="做一个 Bell 态并测量" data-prediction="correlated">Bell / 纠缠</button><button class="preset" type="button" data-prompt="生成一个 3 比特 GHZ 纠缠态并全测量" data-prediction="correlated">GHZ / 相关性</button><button class="preset" type="button" data-prompt="生成一个叠加态" data-prediction="uniform">叠加 / 概率</button><button class="preset" type="button" data-prompt="用 Grover 搜索一个目标" data-prediction="uncertain">Grover / 搜索</button></div>
+      </div>
+      <div>
+        <div class="control-block"><div class="control-row"><label for="observation-range">洞内观测频率</label><output id="observation-value">35%</output></div><input id="observation-range" type="range" min="0" max="100" step="1" value="35"><div class="range-caption" id="observation-copy">观测少一点，保留更多未知感。</div></div>
+        <div class="control-block"><div class="control-row"><label for="shots-range">重复走过这条路</label><output id="shots-value">1024 shots</output></div><input id="shots-range" type="range" min="100" max="2048" step="100" value="1024"><div class="range-caption">shots 越多，出口分布越稳定。</div></div>
+        <div class="control-block"><p class="prediction-title">你预测这次会看到什么？</p><div class="prediction-list"><label class="prediction"><input type="radio" name="prediction" value="correlated"> 只有 00 / 11 这类相关结果</label><label class="prediction"><input type="radio" name="prediction" value="uniform"> 多个出口差不多平均</label><label class="prediction"><input type="radio" name="prediction" value="uncertain" checked> 我还不确定，直接看证据</label></div><p class="prediction-result" id="prediction-result">预测会在实验结束后和主峰对照。</p></div>
+      </div>
+    </aside>
+  </main>
+
+  <section class="bottom-grid" aria-label="实验证据">
+    <div class="console-panel"><div class="console-head"><h2>程序层 / OpenQASM 2.0</h2><span id="qasm-status">WAITING FOR CIRCUIT</span></div><pre class="qasm-box" id="qasm-box">输入一句话，电路会在这里出现。</pre></div>
+    <div class="console-panel"><div class="console-head"><h2>证据层 / 出口分布</h2><span id="evidence-status">NO RUN YET</span></div><div class="bars" id="evidence-bars"><div class="empty-state">运行一次实验后，这里会并排显示理想、采样和噪声影子。</div></div><p class="evidence-note" id="evidence-note">真实结果不是动画的装饰，它是可以重复验证的测量证据。</p></div>
+  </section>
+</div>
+<script>
+(function () {
+  "use strict";
+  var root = document.getElementById("quantum-cave-app");
+  var canvas = document.getElementById("quantum-cave-canvas");
+  var ctx = canvas.getContext("2d");
+  var particles = [];
+  var pointer = { x: -999, y: -999, active: false };
+  var state = { phase: 0, observation: 35, shots: 1024, activeAgent: "intent", data: null, runId: 0, running: false };
+  var phaseNames = ["意图", "电路", "质疑", "模拟", "观测"];
+  var agentData = {
+    intent: { title: "意图翻译", copy: "把你的话变成一个可以被验证的实验目标。", output: "输入：一句自然语言\\n输出：目标 + 可观测变量" },
+    circuit: { title: "电路构建", copy: "选择最小的门序列，把目标变成 OpenQASM。", output: "检查：门白名单\\n产出：可执行电路" },
+    critic: { title: "假设质疑", copy: "先预测主峰，再运行。预测错了也没关系，错是实验的入口。", output: "问题：如果拆掉 CX，相关性还在吗？" },
+    simulator: { title: "本地模拟", copy: "不需要账号，重复走过这条路，把概率变成 counts。", output: "backend：braket_local_simulator\\nshots：等待设置" },
+    observer: { title: "观测解释", copy: "把测量后的影子和理想分布、噪声分布放在一起解释。", output: "证据：等待出口结果" }
+  };
+
+  function resizeCanvas() {
+    var rect = canvas.getBoundingClientRect();
+    var dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.round(rect.width * dpr));
+    canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    canvas.__width = rect.width;
+    canvas.__height = rect.height;
+    if (!particles.length) seedParticles();
+  }
+
+  function seedParticles() {
+    var width = canvas.__width || canvas.clientWidth || 700;
+    var height = canvas.__height || canvas.clientHeight || 560;
+    var count = Math.max(44, Math.min(88, Math.round(width * height / 4600)));
+    particles = [];
+    for (var i = 0; i < count; i += 1) {
+      var angle = Math.random() * Math.PI * 2;
+      var radius = 42 + Math.random() * Math.min(width, height) * .42;
+      particles.push({ x: width / 2 + Math.cos(angle) * radius, y: height / 2 + Math.sin(angle) * radius * .62, vx: (Math.random() - .5) * .25, vy: (Math.random() - .5) * .25, r: 1.1 + Math.random() * 2.3, phase: Math.random() * 6.28 });
+    }
+    document.getElementById("particle-count").textContent = particles.length;
+  }
+
+  function draw() {
+    var width = canvas.__width || canvas.clientWidth || 700;
+    var height = canvas.__height || canvas.clientHeight || 560;
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = "#08131e";
+    ctx.fillRect(0, 0, width, height);
+    var cx = width / 2, cy = height * .52;
+    var caveWidth = Math.min(width * .82, 650), caveHeight = Math.min(height * .74, 430);
+    ctx.save();
+    ctx.strokeStyle = "rgba(111,231,217,.10)";
+    ctx.lineWidth = 1;
+    for (var ring = 0; ring < 5; ring += 1) {
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, caveWidth * (.24 + ring * .13), caveHeight * (.2 + ring * .13), 0, Math.PI, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = "rgba(242,198,109,.22)";
+    ctx.beginPath();
+    ctx.moveTo(cx - caveWidth * .5, cy + caveHeight * .23);
+    ctx.quadraticCurveTo(cx, cy - caveHeight * .48, cx + caveWidth * .5, cy + caveHeight * .23);
+    ctx.stroke();
+    var rayCount = Math.round(2 + state.observation / 12);
+    ctx.strokeStyle = "rgba(242,198,109," + (.06 + state.observation / 650).toFixed(3) + ")";
+    for (var ray = 0; ray < rayCount; ray += 1) {
+      var rayAngle = -Math.PI * .86 + ray / Math.max(1, rayCount - 1) * Math.PI * .72;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(rayAngle) * caveWidth * .5, cy + Math.sin(rayAngle) * caveHeight * .58); ctx.stroke();
+    }
+    ctx.restore();
+    for (var i = 0; i < particles.length; i += 1) {
+      var p = particles[i];
+      p.phase += .018;
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < -20) p.x = width + 20; if (p.x > width + 20) p.x = -20;
+      if (p.y < -20) p.y = height + 20; if (p.y > height + 20) p.y = -20;
+      if (pointer.active) {
+        var dx = p.x - pointer.x, dy = p.y - pointer.y, dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 100 && dist > .1) { var force = (100 - dist) / 100; p.x += dx / dist * force * .7; p.y += dy / dist * force * .7; }
+      }
+    }
+    for (var a = 0; a < particles.length; a += 1) {
+      for (var b = a + 1; b < particles.length; b += 1) {
+        var p1 = particles[a], p2 = particles[b], ddx = p1.x - p2.x, ddy = p1.y - p2.y, distance = Math.sqrt(ddx * ddx + ddy * ddy);
+        if (distance < 96) { ctx.strokeStyle = "rgba(130,199,255," + ((1 - distance / 96) * .24).toFixed(3) + ")"; ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke(); }
+      }
+    }
+    for (var j = 0; j < particles.length; j += 1) {
+      var dot = particles[j];
+      var pulse = 1 + Math.sin(dot.phase) * .18;
+      ctx.fillStyle = j % 5 === 0 ? "#f2c66d" : "#6fe7d9";
+      ctx.globalAlpha = .46 + state.observation / 220;
+      ctx.beginPath(); ctx.arc(dot.x, dot.y, dot.r * pulse, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "rgba(242,198,109,.75)"; ctx.beginPath(); ctx.arc(cx, cy, 3 + state.observation / 28, 0, Math.PI * 2); ctx.fill();
+    requestAnimationFrame(draw);
+  }
+
+  function setAgent(name, phase) {
+    state.activeAgent = name;
+    if (typeof phase === "number") state.phase = phase;
+    document.querySelectorAll(".agent-node").forEach(function (node) {
+      var key = node.getAttribute("data-agent");
+      var index = ["intent", "circuit", "critic", "simulator", "observer"].indexOf(key);
+      node.classList.toggle("active", key === name);
+      node.classList.toggle("done", index >= 0 && index < state.phase);
+      node.setAttribute("aria-pressed", key === name ? "true" : "false");
+    });
+    var info = agentData[name];
+    document.getElementById("agent-title").textContent = info.title;
+    document.getElementById("agent-copy").textContent = info.copy;
+    document.getElementById("agent-output").textContent = info.output;
+    document.getElementById("stage-meter").textContent = "PHASE 0" + Math.min(5, state.phase + 1) + " / 05";
+  }
+
+  function updateObservation(value) {
+    state.observation = Number(value);
+    document.getElementById("observation-value").textContent = state.observation + "%";
+    document.getElementById("observe-stage-value").textContent = state.observation + "%";
+    document.getElementById("observation-copy").textContent = state.observation < 35 ? "观测少一点，保留更多未知感。" : state.observation < 70 ? "影子变清楚了，但仍不是完整量子态。" : "观测频繁，洞内影子最稳定。";
+  }
+
+  function updateShots(value) { state.shots = Number(value); document.getElementById("shots-value").textContent = state.shots + " shots"; }
+
+  function sleep(ms) { return new Promise(function (resolve) { window.setTimeout(resolve, ms); }); }
+
+  function predictionValue() { var checked = document.querySelector("input[name=prediction]:checked"); return checked ? checked.value : "uncertain"; }
+
+  async function runExperiment(prompt, presetPrediction, requestedMode) {
+    if (state.running) return;
+    prompt = (prompt || document.getElementById("task-input").value || "").trim();
+    if (!prompt) { document.getElementById("stage-note").textContent = "先给洞穴一个问题。"; return; }
+    var runId = ++state.runId;
+    state.running = true;
+    document.getElementById("task-input").value = prompt;
+    if (presetPrediction) { var radio = document.querySelector("input[name=prediction][value=" + presetPrediction + "]"); if (radio) radio.checked = true; }
+    var runButton = document.getElementById("run-button"); runButton.disabled = true; runButton.textContent = requestedMode === "local" ? "本地模拟中…" : "智能体正在协作…";
+    state.data = null; document.getElementById("top-status").textContent = requestedMode === "local" ? "LOCAL SIMULATOR / WORKING" : "AGENT ROUTE / WORKING"; document.getElementById("stage-live").textContent = "过程展开中";
+    ["intent", "circuit", "critic", "simulator"].forEach(function (name, index) { window.setTimeout(function () { if (runId === state.runId) setAgent(name, index); }, index * 180); });
+    await sleep(720);
+    if (runId !== state.runId) return;
+    document.getElementById("agent-output").textContent = (requestedMode === "local" ? "backend：braket_local_simulator" : "route：agent → local fallback if needed") + "\\nshots：" + state.shots;
+    try {
+      var response = await fetch("/experiment", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: prompt, mode: requestedMode || "auto", shots: state.shots, observation: state.observation }) });
+      var data = await response.json();
+      if (!data.ok) throw new Error(data.error || "实验失败");
+      if (runId !== state.runId) return;
+      state.data = data; setAgent("observer", 4);
+      if (data.kind === "answer") {
+        renderAnswer(data);
+        document.getElementById("top-status").textContent = "AGENT · ANSWER";
+      } else {
+        renderResult(data);
+        document.getElementById("top-status").textContent = data.mode === "agent" ? "AGENT · COMPLETE" : (data.fallback_reason ? "LOCAL FALLBACK · COMPLETE" : "LOCAL SIMULATOR · COMPLETE");
+      }
+      document.getElementById("stage-live").textContent = "出口已打开";
+    } catch (error) {
+      if (runId !== state.runId) return;
+      setAgent("intent", 0); document.getElementById("stage-live").textContent = "需要重新输入"; document.getElementById("stage-note").textContent = "这次实验没有完成：" + error.message; document.getElementById("top-status").textContent = "LOCAL SIMULATOR · RETRY";
+    } finally {
+      if (runId === state.runId) { state.running = false; runButton.disabled = false; runButton.textContent = "开始一次观测"; }
+    }
+  }
+
+  function esc(value) { return String(value == null ? "" : value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;"); }
+
+  function renderAnswer(data) {
+    var answer = data.answer || "智能体返回了一个文本答案。";
+    document.getElementById("stage-note").textContent = answer;
+    document.getElementById("shadow-state").textContent = "答复";
+    document.getElementById("shadow-caption").textContent = "这是智能体的解释或后端建议，不是测量分布。";
+    document.getElementById("qasm-status").textContent = "AGENT ANSWER";
+    document.getElementById("qasm-box").textContent = answer;
+    document.getElementById("evidence-status").textContent = "NO CIRCUIT RUN";
+    document.getElementById("evidence-bars").innerHTML = '<div class="empty-state">这次请求返回的是文本建议，没有可绘制的测量分布。</div>';
+    document.getElementById("prediction-result").className = "prediction-result";
+    document.getElementById("prediction-result").textContent = "先读完智能体建议，再提出一个可运行的实验。";
+    document.getElementById("agent-output").textContent = answer;
+  }
+
+  function renderResult(data) {
+    var idealKeys = Object.keys(data.ideal || {}).sort(function (a,b) { return (data.ideal[b] || 0) - (data.ideal[a] || 0); });
+    var top = idealKeys.slice(0, 2).join(" / ");
+    document.getElementById("shadow-state").textContent = top || "—";
+    document.getElementById("shadow-caption").textContent = "出口影子 · 理想主峰 " + (top || "未知");
+    document.getElementById("stage-note").textContent = (data.fallback_reason ? data.fallback_reason + " " : "") + (data.observation_note || data.result_note || "实验完成。");
+    document.getElementById("qasm-status").textContent = data.mode === "local" ? "LOCAL TEMPLATE / VALID" : "AGENT OUTPUT / VALID";
+    document.getElementById("qasm-box").textContent = data.qasm || "没有生成 QASM。";
+    document.getElementById("evidence-status").textContent = data.shots + " SHOTS / MAIN PEAK " + (top || "—");
+    var allKeys = {};
+    [data.ideal || {}, data.counts || {}, data.noisy || {}, data.real || {}].forEach(function (distribution) { Object.keys(distribution).forEach(function (key) { allKeys[key] = true; }); });
+    var barKeys = Object.keys(allKeys).sort().slice(0, 8);
+    var html = "";
+    barKeys.forEach(function (key) {
+      var ideal = Number(data.ideal[key] || 0), sampled = Number(data.counts && data.counts[key] || 0) / Math.max(1, data.shots), noisy = Number(data.noisy && data.noisy[key] || 0), real = Number(data.real && data.real[key] || 0);
+      html += '<div class="result-group"><div class="result-key">状态 ' + esc(key) + '</div>';
+      html += '<div class="bar-row"><span>理想</span><span class="bar-track"><span class="bar-fill ideal" style="width:' + Math.min(100, ideal * 100) + '%"></span></span><span>' + (ideal * 100).toFixed(1) + '%</span></div>';
+      html += '<div class="bar-row"><span>采样</span><span class="bar-track"><span class="bar-fill sampled" style="width:' + Math.min(100, sampled * 100) + '%"></span></span><span>' + (sampled * 100).toFixed(1) + '%</span></div>';
+      html += '<div class="bar-row"><span>噪声</span><span class="bar-track"><span class="bar-fill noisy" style="width:' + Math.min(100, noisy * 100) + '%"></span></span><span>' + (noisy * 100).toFixed(1) + '%</span></div>';
+      if (data.real) html += '<div class="bar-row"><span>真机</span><span class="bar-track"><span class="bar-fill real" style="width:' + Math.min(100, real * 100) + '%"></span></span><span>' + (real * 100).toFixed(1) + '%</span></div>';
+      html += '</div>';
+    });
+    document.getElementById("evidence-bars").innerHTML = html || '<div class="empty-state">没有可显示的测量结果。</div>';
+    var idealValues = idealKeys.map(function (key) { return Number(data.ideal[key] || 0); });
+    var minIdeal = idealValues.length ? Math.min.apply(null, idealValues) : 0, maxIdeal = idealValues.length ? Math.max.apply(null, idealValues) : 0;
+    var correlated = data.num_qubits >= 2 && idealKeys.length === 2 && idealKeys.every(function (key) { return key === "0".repeat(key.length) || key === "1".repeat(key.length); });
+    var uniform = idealKeys.length >= 2 && maxIdeal - minIdeal <= 0.08;
+    var predicted = predictionValue(), result = document.getElementById("prediction-result"), hit = predicted === "uncertain" || (predicted === "correlated" && correlated) || (predicted === "uniform" && uniform);
+    result.className = "prediction-result " + (hit ? "hit" : "miss");
+    result.textContent = predicted === "uncertain" ? "你选择先看证据：主峰是 " + (top || "—") + "。" : (hit ? "预测命中：" : "预测偏离：") + "理想主峰是 " + (top || "—") + "。";
+    document.getElementById("agent-output").textContent = "主峰：" + (top || "—") + "\\n" + (data.result_note || "采样完成");
+  }
+
+  document.querySelectorAll(".agent-node").forEach(function (node) { node.addEventListener("click", function () { setAgent(node.getAttribute("data-agent")); }); });
+  document.querySelectorAll(".preset").forEach(function (button) { button.addEventListener("click", function () { if (state.running) return; document.querySelectorAll(".preset").forEach(function (item) { item.setAttribute("aria-pressed", "false"); }); button.setAttribute("aria-pressed", "true"); runExperiment(button.getAttribute("data-prompt"), button.getAttribute("data-prediction"), "local"); }); });
+  document.getElementById("run-button").addEventListener("click", function () { runExperiment(null, null, "auto"); });
+  document.getElementById("observation-range").addEventListener("input", function (event) { updateObservation(event.target.value); });
+  document.getElementById("shots-range").addEventListener("input", function (event) { updateShots(event.target.value); });
+  canvas.addEventListener("pointermove", function (event) { var rect = canvas.getBoundingClientRect(); pointer.x = event.clientX - rect.left; pointer.y = event.clientY - rect.top; pointer.active = true; });
+  canvas.addEventListener("pointerleave", function () { pointer.active = false; });
+  canvas.addEventListener("click", function (event) { var rect = canvas.getBoundingClientRect(), x = event.clientX - rect.left, y = event.clientY - rect.top, closest = null, distance = 9999; particles.forEach(function (p) { var dx = p.x - x, dy = p.y - y, d = dx * dx + dy * dy; if (d < distance) { distance = d; closest = p; } }); if (closest && distance < 12000) { document.getElementById("stage-note").textContent = "你点中了一个状态样本：它只能告诉你一个出口影子，不能替代完整量子态。"; } });
+  window.addEventListener("resize", function () { resizeCanvas(); seedParticles(); });
+  resizeCanvas(); seedParticles(); updateObservation(35); updateShots(1024); setAgent("intent", 0); draw();
+}());
+</script>
+</body>
+</html>
