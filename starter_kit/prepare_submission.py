@@ -67,7 +67,7 @@ def main() -> int:
     if missing:
         raise RuntimeError("缺少必需文件: " + ", ".join(missing))
     issue_url = f"https://github.com/{config['upstream']}/issues/new?template=final-submission.yml"
-    print("✅ 本地提交预检通过\n")
+    print("[OK] 本地提交预检通过\n")
     print(f"Team ID: {team_id}")
     print(f"Fork repository: {repository}")
     print(f"Commit SHA: {commit_sha}")
@@ -80,5 +80,5 @@ if __name__ == "__main__":
     try:
         sys.exit(main())
     except Exception as exc:
-        print(f"❌ 预检失败: {exc}", file=sys.stderr)
+        print(f"[ERROR] 预检失败: {exc}", file=sys.stderr)
         sys.exit(1)

@@ -196,6 +196,14 @@ class IntakeValidationTests(unittest.TestCase):
 
 
 class PreflightIdentityTests(unittest.TestCase):
+    def test_preflight_status_markers_are_windows_console_safe(self):
+        source = (
+            Path(__file__).resolve().parents[1] / "starter_kit" / "prepare_submission.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('print("[OK] 本地提交预检通过', source)
+        self.assertIn('print(f"[ERROR] 预检失败:', source)
+        source.encode("gbk")
+
     def test_preflight_rejects_team_id_that_does_not_own_origin_fork(self):
         prepare = load_prepare_submission()
         responses = {
