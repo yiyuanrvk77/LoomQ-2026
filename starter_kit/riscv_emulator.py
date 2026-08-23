@@ -18,7 +18,7 @@ QUANT_FUNCT3 = 0b000
 
 def encode_quant(rd: int, imm: int) -> int:
     """把 `quant rd, imm` 编码成 32 位 RISC-V 机器码。"""
-    if not (0 <= rd <= 31) or not (0 <= imm <= 31):
+    if type(rd) is not int or type(imm) is not int or not (0 <= rd <= 31) or not (0 <= imm <= 2):
         raise ValueError(f"QUANT 编码越界: rd={rd}, imm={imm}")
     word = 0
     word |= (QUANT_FUNCT7 & 0x7F) << 25
@@ -31,12 +31,22 @@ def encode_quant(rd: int, imm: int) -> int:
 
 def decode_quant(word: int) -> Tuple[int, int]:
     """解码 32 位机器码，返回 (rd, imm)。非 QUANT 机器码会抛错。"""
+    if type(word) is not int or not (0 <= word < (1 << 32)):
+        raise ValueError(f"QUANT 机器码必须是 32 位无符号整数: {word!r}")
     opcode = word & 0x7F
     funct7 = (word >> 25) & 0x7F
-    if opcode != QUANT_OPCODE or funct7 != QUANT_FUNCT7:
+    funct3 = (word >> 12) & 0x7
+    rs1 = (word >> 15) & 0x1F
+    imm = (word >> 20) & 0x1F
+    if (
+        opcode != QUANT_OPCODE
+        or funct7 != QUANT_FUNCT7
+        or funct3 != QUANT_FUNCT3
+        or rs1 != 0
+        or imm > 2
+    ):
         raise ValueError(f"不是合法的 QUANT 指令机器码: 0x{word:08x}")
     rd = (word >> 7) & 0x1F
-    imm = (word >> 20) & 0x1F
     return rd, imm
 
 
@@ -108,7 +118,9 @@ class TinyRISCVEmulator:
             args = tokens[1:]
             if op == "quant":
                 # quant rd, imm —— 编码成 32 位机器码，再进入执行链路解码
-                rd = int(args[0].strip().lower().lstrip("x"))
+                if len(args) != 2:
+                    raise ValueError("quant 指令格式必须是: quant rd, imm")
+                rd = self._parse_reg_idx(args[0])
                 imm = int(args[1])
                 temp_instructions.append(("quant", [str(encode_quant(rd, imm))]))
                 continue
@@ -182,8 +194,9 @@ class TinyRISCVEmulator:
                 v = self.registers[rd_idx]
                 if imm == 0:        # H：|0⟩↔|+⟩、|1⟩↔|−⟩
                     v = {0: 2, 2: 0, 1: 3, 3: 1}[v]
-                elif imm == 1:      # X（NOT）：|0⟩↔|1⟩、|+⟩↔|−⟩
-                    v = v ^ 1
+                elif imm == 1:      # X（NOT）：|0⟩↔|1⟩；X 基态只差整体相位
+                    if v in (0, 1):
+                        v = v ^ 1
                 elif imm == 2:      # Z（相位翻转）：|+⟩↔|−⟩，|0⟩/|1⟩ 不变
                     if v in (2, 3):
                         v = v ^ 1

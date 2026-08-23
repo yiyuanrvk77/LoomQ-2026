@@ -1,30 +1,31 @@
-<div id="shor-code">
-  <h3>量子纠错 · 9 比特 Shor 码</h3>
-
-  <div class="viz-controls">
-    <label class="form-label" for="modeSel">错误类型</label>
-    <select id="modeSel" class="form-select">
-      <option value="x">位翻转（X）</option>
-      <option value="z">相位翻转（Z）</option>
-    </select>
-    <button type="button" class="btn" id="bRandom">随机错误</button>
-    <button type="button" class="btn btn-ghost" id="bReset">重置</button>
-  </div>
-
-  <svg id="grid" viewBox="0 0 420 360" role="img" aria-label="9 个物理比特排列成 3 行 3 列"></svg>
-
-  <div id="status" class="status" role="status" aria-live="polite">点一个比特注入错误，看校验如何定位它。</div>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>9 比特 Shor 码 · LoomQ</title>
+<link rel="stylesheet" href="qec-games.css">
+</head>
+<body>
+<div id="shor-code" class="game-page" data-game="shor-code">
+  <header class="game-topbar"><a class="game-brand" href="../index.html">LOOMQ / ERROR FIELD</a><a class="game-back" href="lab.html">← 返回四个实验</a></header>
+  <main class="game-main">
+    <section class="game-hero"><div><p class="game-kicker">02 / 04 · 进阶路径</p><h1>9 比特 Shor 码</h1><p>一个逻辑比特被拆进三组、每组再重复三次。点一个节点，让你看到它如何同时面对位翻转和相位翻转。</p></div><div class="game-progress"><strong>SHOR CODE</strong>9 个物理比特 · 3 个区块</div></section>
+    <div class="game-layout">
+      <section class="game-stage">
+        <div class="game-stage-head"><span>ERROR MAP / 3 × 3 PHYSICAL QUBITS</span><strong>节点可点击</strong></div>
+        <div class="game-canvas"><svg id="grid" viewBox="0 0 420 360" role="img" aria-label="9 个物理比特排列成 3 行 3 列"></svg></div>
+        <div class="game-stage-foot"><span>三行 = 三个重复区块</span><span>错误会被校验拆开</span></div>
+      </section>
+      <aside class="game-panel">
+        <div class="game-panel-head"><span class="game-panel-label">CONTROL / 02</span><h2>点出一个错误</h2><p class="game-panel-copy">选择错误类型，再点任意节点。每个节点都会给出一条可解释的校验路径。</p></div>
+        <div class="game-steps"><div class="game-step"><b>01</b><span><strong>选择错误</strong><small>X 看状态翻转，Z 看相位区块</small></span></div><div class="game-step"><b>02</b><span><strong>点一个节点</strong><small>错误会留在当前区块</small></span></div><div class="game-step"><b>03</b><span><strong>读定位结果</strong><small>观察码能定位到什么程度</small></span></div></div>
+        <div class="viz-controls"><label class="form-label" for="modeSel">错误类型</label><select id="modeSel" class="form-select"><option value="x">位翻转（X）</option><option value="z">相位翻转（Z）</option></select><button type="button" class="btn btn-primary" id="bRandom">随机错误</button><button type="button" class="btn btn-ghost" id="bReset">重置</button></div>
+        <div id="status" class="status" role="status" aria-live="polite">点一个比特注入错误，看校验如何定位它。</div><p class="game-hint">粉色表示错误节点；先观察行和区块，再读右侧解释。</p>
+      </aside>
+    </div>
+  </main>
 </div>
-
-<style>
-#shor-code .q { fill: var(--card); stroke: var(--border); stroke-width: 1.5; }
-#shor-code .q.err { stroke: var(--destructive); stroke-width: 3; }
-#shor-code .qstate { fill: var(--foreground); font-size: 17px; }
-#shor-code .qstate.one { fill: var(--viz-series-1); font-weight: 500; }
-#shor-code .qname { fill: var(--muted-foreground); font-size: 11px; }
-#shor-code .errmark { fill: var(--destructive); font-size: 17px; }
-#shor-code .status { color: var(--foreground); margin-top: 10px; }
-</style>
 
 <script>
 (function () {
@@ -45,6 +46,10 @@
     for (var c = 0; c < 3; c++) {
       var idx = r * 3 + c;
       var g = document.createElementNS(NS, "g");
+      g.setAttribute("class", "qnode");
+      g.setAttribute("role", "button");
+      g.setAttribute("tabindex", "0");
+      g.setAttribute("aria-label", "在 q" + idx + " 注入错误");
       var circ = document.createElementNS(NS, "circle");
       circ.setAttribute("cx", xs[c]); circ.setAttribute("cy", ys[r]); circ.setAttribute("r", 30); circ.setAttribute("class", "q");
       var nm = document.createElementNS(NS, "text");
@@ -54,7 +59,10 @@
       var mk = document.createElementNS(NS, "text");
       mk.setAttribute("x", xs[c] + 27); mk.setAttribute("y", ys[r] - 24); mk.setAttribute("text-anchor", "middle"); mk.setAttribute("class", "errmark"); mk.textContent = "✕";
       g.appendChild(circ); g.appendChild(nm); g.appendChild(st); g.appendChild(mk);
-      g.addEventListener("click", function () { inject(idx); });
+      g.addEventListener("click", (function (index) { return function () { inject(index); }; })(idx));
+      g.addEventListener("keydown", (function (index) { return function (event) {
+        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); inject(index); }
+      }; })(idx));
       svg.appendChild(g);
       circEls.push(circ); stateEls.push(st); markEls.push(mk);
     }
@@ -68,14 +76,14 @@
       var a = data[r * 3] ^ data[r * 3 + 1];
       var b = data[r * 3 + 1] ^ data[r * 3 + 2];
       var col = (a && b) ? 1 : (a ? 0 : 2);
-      return "位翻转：第 " + r + " 行校验 = (" + a + ", " + b + ")，其余两行为 00 → 出错在第 " + r + " 行第 " + col + " 列。";
+      return "位翻转：第 " + (r + 1) + " 行校验 = (" + a + ", " + b + ")，其余两行为 00 → 出错在第 " + (r + 1) + " 行第 " + (col + 1) + " 列。";
     }
     var p0 = data[0] ^ data[1] ^ data[2];
     var p1 = data[3] ^ data[4] ^ data[5];
     var p2 = data[6] ^ data[7] ^ data[8];
     var s1 = p0 ^ p1, s2 = p1 ^ p2;
     var row = (s1 && s2) ? 1 : (s1 ? 0 : 2);
-    return "相位翻转：三块相位奇偶 = (" + p0 + ", " + p1 + ", " + p2 + ")，行间校验 = (" + s1 + ", " + s2 + ") → 出错在第 " + row + " 个块（相位码只定位到块）。";
+    return "相位翻转：三块相位奇偶 = (" + p0 + ", " + p1 + ", " + p2 + ")，行间校验 = (" + s1 + ", " + s2 + ") → 出错在第 " + (row + 1) + " 个块（相位码只定位到块）。";
   }
 
   function render() {
@@ -105,3 +113,5 @@
   render();
 })();
 </script>
+</body>
+</html>

@@ -1,24 +1,20 @@
-<div id="qec-lab">
-  <h3>量子纠错 · 重复码实验室</h3>
-
-  <div class="viz-controls">
-    <label class="form-label" for="modeSel">错误类型</label>
-    <select id="modeSel" class="form-select">
-      <option value="bit">位翻转码（X 错误）</option>
-      <option value="phase">相位翻转码（Z 错误）</option>
-    </select>
-  </div>
-
-  <div class="viz-controls">
-    <button type="button" class="btn" id="bEncode">编码</button>
-    <button type="button" class="btn" id="bQ0">注入 q0</button>
-    <button type="button" class="btn" id="bQ1">注入 q1</button>
-    <button type="button" class="btn" id="bQ2">注入 q2</button>
-    <button type="button" class="btn" id="bRandom">随机注入</button>
-    <button type="button" class="btn btn-primary" id="bMeasure">测 syndrome</button>
-    <button type="button" class="btn" id="bCorrect">纠正</button>
-    <button type="button" class="btn btn-ghost" id="bReset">重置</button>
-  </div>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>重复码实验室 · LoomQ</title>
+<link rel="stylesheet" href="qec-games.css">
+</head>
+<body>
+<div id="qec-lab" class="game-page" data-game="repeat-code">
+  <header class="game-topbar"><a class="game-brand" href="../index.html">LOOMQ / ERROR FIELD</a><a class="game-back" href="lab.html">← 返回四个实验</a></header>
+  <main class="game-main">
+    <section class="game-hero"><div><p class="game-kicker">01 / 04 · 入门路径</p><h1>重复码实验室</h1><p>先把逻辑信息编码进三个物理比特，再亲手制造一次错误。syndrome 不会告诉你“答案”，它只留下错误所在的坐标。</p></div><div class="game-progress"><strong>REPETITION CODE</strong>3 个物理比特 · 2 个校验</div></section>
+    <div class="game-layout">
+      <section class="game-stage">
+        <div class="game-stage-head"><span>LIVE SYNDROME / 3 DATA QUBITS</span><strong>点击节点查看状态</strong></div>
+        <div class="game-canvas">
 
   <svg viewBox="0 0 720 290" role="img" aria-label="3 个数据比特与 2 个 syndrome 比特的纠错示意图">
     <line class="conn" x1="160" y1="128" x2="240" y2="212"></line>
@@ -26,19 +22,19 @@
     <line class="conn" x1="370" y1="128" x2="458" y2="212"></line>
     <line class="conn" x1="560" y1="128" x2="482" y2="212"></line>
 
-    <g id="g0">
+    <g id="g0" class="qnode" role="button" tabindex="0" aria-label="在 q0 注入错误">
       <circle id="q0" class="qcircle" cx="140" cy="90" r="38"></circle>
       <text class="qname" x="140" y="52" text-anchor="middle">q0</text>
       <text id="s0" class="qstate" x="140" y="98" text-anchor="middle">|0⟩</text>
       <text id="x0" class="errx" x="178" y="70" text-anchor="middle">✕</text>
     </g>
-    <g id="g1">
+    <g id="g1" class="qnode" role="button" tabindex="0" aria-label="在 q1 注入错误">
       <circle id="q1" class="qcircle" cx="360" cy="90" r="38"></circle>
       <text class="qname" x="360" y="52" text-anchor="middle">q1</text>
       <text id="s1" class="qstate" x="360" y="98" text-anchor="middle">|0⟩</text>
       <text id="x1" class="errx" x="398" y="70" text-anchor="middle">✕</text>
     </g>
-    <g id="g2">
+    <g id="g2" class="qnode" role="button" tabindex="0" aria-label="在 q2 注入错误">
       <circle id="q2" class="qcircle" cx="580" cy="90" r="38"></circle>
       <text class="qname" x="580" y="52" text-anchor="middle">q2</text>
       <text id="s2" class="qstate" x="580" y="98" text-anchor="middle">|0⟩</text>
@@ -55,26 +51,19 @@
       <text class="qname" x="470" y="205" text-anchor="middle">S2 = q1⊕q2</text>
       <text id="syB" class="syn" x="470" y="241" text-anchor="middle">?</text>
     </g>
-  </svg>
-
-  <div id="status" class="status" role="status" aria-live="polite">选择错误类型后，点「编码」开始</div>
+        </div>
+        <div class="game-stage-foot"><span>状态 = 逻辑信息的当前投影</span><span id="stageSyndrome">SYNDROME ?? = 等待测量</span></div>
+      </section>
+      <aside class="game-panel">
+        <div class="game-panel-head"><span class="game-panel-label">CONTROL / 01</span><h2>先编码，再找错</h2><p class="game-panel-copy">选择一种错误，点入一个比特，然后测量 syndrome。最后按坐标把它纠正回来。</p></div>
+        <div class="game-steps"><div class="game-step"><b>01</b><span><strong>编码</strong><small>把逻辑信息写进三个物理比特</small></span></div><div class="game-step"><b>02</b><span><strong>制造错误</strong><small>只让一个节点偏离</small></span></div><div class="game-step"><b>03</b><span><strong>读回并纠正</strong><small>用两个校验定位它</small></span></div></div>
+        <div class="viz-controls"><label class="form-label" for="modeSel">错误类型</label><select id="modeSel" class="form-select"><option value="bit">位翻转码（X 错误）</option><option value="phase">相位翻转码（Z 错误）</option></select></div>
+        <div class="viz-controls"><button type="button" class="btn" id="bEncode">编码</button><button type="button" class="btn" id="bQ0">注入 q0</button><button type="button" class="btn" id="bQ1">注入 q1</button><button type="button" class="btn" id="bQ2">注入 q2</button><button type="button" class="btn" id="bRandom">随机注入</button><button type="button" class="btn btn-primary" id="bMeasure">测 syndrome</button><button type="button" class="btn" id="bCorrect">纠正</button><button type="button" class="btn btn-ghost" id="bReset">重置</button></div>
+        <div id="status" class="status" role="status" aria-live="polite">选择错误类型后，点「编码」开始</div><p class="game-hint">颜色含义：青色是可用状态，金色是校验读数，粉色表示错误位置。</p>
+      </aside>
+    </div>
+  </main>
 </div>
-
-<style>
-#qec-lab .qcircle { fill: var(--card); stroke: var(--border); stroke-width: 1.5; }
-#qec-lab .qcircle.err { stroke: var(--destructive); stroke-width: 3; }
-#qec-lab .qcircle.ok { stroke: var(--green); stroke-width: 3; }
-#qec-lab .sycircle { fill: var(--card); stroke: var(--accent); stroke-width: 1.5; }
-#qec-lab .conn { stroke: var(--border); stroke-width: 1.5; stroke-dasharray: 4 4; }
-#qec-lab .qstate { fill: var(--foreground); font-size: 18px; }
-#qec-lab .qstate.one { fill: var(--viz-series-1); font-weight: 500; }
-#qec-lab .qname { fill: var(--muted-foreground); font-size: 12px; }
-#qec-lab .syn { fill: var(--foreground); font-size: 16px; }
-#qec-lab .syn.hit { fill: var(--viz-series-1); font-weight: 500; }
-#qec-lab .errx { fill: var(--destructive); font-size: 18px; font-weight: 500; opacity: 0; }
-#qec-lab .errx.show { opacity: 1; }
-#qec-lab .status { color: var(--foreground); margin-top: 10px; }
-</style>
 
 <script>
 (function () {
@@ -92,6 +81,7 @@
   var syA = root.querySelector("#syA");
   var syB = root.querySelector("#syB");
   var status = root.querySelector("#status");
+  var stageSyndrome = root.querySelector("#stageSyndrome");
 
   function stLabel(v) { return mode === "bit" ? (v ? "|1⟩" : "|0⟩") : (v ? "|-⟩" : "|+⟩"); }
   function errWord() { return mode === "bit" ? "位翻转（X）" : "相位翻转（Z）"; }
@@ -117,14 +107,18 @@
 
     if (corrected) {
       status.textContent = "已纠正，逻辑态完好";
+      stageSyndrome.textContent = "RESTORED = 逻辑态完好";
     } else if (measured) {
       var key = String(measured[0]) + String(measured[1]);
       var loc = { "10": "q0", "11": "q1", "01": "q2" }[key];
       status.textContent = loc ? ("syndrome = " + key + " → 错误在 " + loc) : ("syndrome = 00 → 无错误");
+      stageSyndrome.textContent = loc ? ("SYNDROME " + key + " = " + loc) : "SYNDROME 00 = 暂无异常";
     } else if (errorAt >= 0) {
       status.textContent = "q" + errorAt + " 发生了" + errWord() + "错误，点「测 syndrome」定位它";
+      stageSyndrome.textContent = "ERROR INJECTED = 尚未测量";
     } else {
       status.textContent = "已编码为 " + encoded() + "，点「注入」或「随机注入」制造一个错误";
+      stageSyndrome.textContent = "SYNDROME ?? = 等待测量";
     }
   }
 
@@ -141,6 +135,15 @@
   root.querySelector("#bQ0").addEventListener("click", function () { inject(0); });
   root.querySelector("#bQ1").addEventListener("click", function () { inject(1); });
   root.querySelector("#bQ2").addEventListener("click", function () { inject(2); });
+  [root.querySelector("#g0"), root.querySelector("#g1"), root.querySelector("#g2")].forEach(function (node, index) {
+    node.addEventListener("click", function () { inject(index); });
+    node.addEventListener("keydown", function (event) {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        inject(index);
+      }
+    });
+  });
   root.querySelector("#bRandom").addEventListener("click", randomError);
   root.querySelector("#bMeasure").addEventListener("click", measure);
   root.querySelector("#bCorrect").addEventListener("click", correct);
@@ -149,3 +152,5 @@
   render();
 })();
 </script>
+</body>
+</html>

@@ -117,6 +117,7 @@ python3 starter_kit/prepare_submission.py --team-id <GITHUB_USERNAME>
 | `LOOMQ_LLM_API_KEY` | 当前运行凭证 |
 | `LOOMQ_LLM_MODEL` | 当前模型；正式评测为 `deepseek-v4-flash` |
 | `LOOMQ_LLM_TIMEOUT_SECONDS` | 单次请求超时 |
+| `LOOMQ_LLM_MAX_OUTPUT_TOKENS` | 单次响应 token 上限（默认 4096） |
 
 正式限制为每个 case 时限 120 秒；两组固定私有种子共 12 个 case。机器可读版本见 `l2_policy.json`。
 
@@ -131,6 +132,18 @@ python3 evaluator.py --level l2
 ```
 
 缺少配置时应立即失败，错误信息不得包含任何 Key。正式评测时，组委会将统一注入 DeepSeek 模型服务及调用预算；评测环境不保证能够访问其他外部网络服务。若参加 L2，请把 `submission.yaml` 中的 `levels.l2` 与 `network.required_for_l2` 同时改为 `true`；`allowed_hosts` 不用于申请正式评测中的任意公网访问。
+
+## 本地模拟与真机凭证
+
+`adapter.run()` 的三个 target 都是本地模拟执行：优先使用厂商本地 SDK，缺少 SDK 时回退到
+内置模拟器。返回的 `meta.is_hardware` 固定为 `false`，`local-*` job ID 不能作为真机证据。
+按主办方口径，真机不需要放进 `run()`；原始结果与说明统一归档到 `evidence/`。
+为避免隐藏输入耗尽评测内存，内置状态向量回退明确限制为 20 比特、单次最多 1,000,000 shots；
+需要更大电路时应安装对应厂商的本地 SDK，而不是绕过该保护。
+
+如果后续增加独立真机连接器，只能从环境变量读取 Token 或账号，不得写入代码和仓库。
+`.env.example` 提供 `LOOMQ_SPINQ_TOKEN`、`LOOMQ_ORIGINQ_TOKEN` 与 AWS 标准凭证变量的空模板；
+当前网页不会读取这些变量，也不会要求零基础用户在浏览器中输入平台凭证。
 
 ## 版本政策
 

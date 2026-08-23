@@ -41,16 +41,18 @@ def _configuration() -> tuple[str, str, str, float, int]:
 def chat_completion(messages: list[dict[str, Any]], **extra: Any) -> dict[str, Any]:
     """Create one non-streaming chat completion using the public L2 contract."""
     base_url, api_key, model, timeout, max_output = _configuration()
-    payload = {
+    payload = dict(extra)
+    payload.update({
         "model": model,
         "messages": messages,
         "stream": False,
         "temperature": 0,
         "max_tokens": max_output,
-    }
+    })
     if model == "deepseek-v4-flash":
         payload["thinking"] = {"type": "disabled"}
-    payload.update(extra)
+    else:
+        payload.pop("thinking", None)
     request = urllib.request.Request(
         base_url + "/chat/completions",
         data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),

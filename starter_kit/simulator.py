@@ -12,6 +12,19 @@ import random
 
 
 _SQ2 = math.sqrt(2.0)
+MAX_STATEVECTOR_QUBITS = 20
+MAX_SHOTS = 1_000_000
+
+
+def _validate_shots(shots: int) -> None:
+    if (
+        isinstance(shots, bool)
+        or not isinstance(shots, int)
+        or not 1 <= shots <= MAX_SHOTS
+    ):
+        raise ValueError(
+            "shots must be a positive integer no greater than %d" % MAX_SHOTS
+        )
 
 
 def _H():
@@ -40,6 +53,11 @@ _SINGLE = {
 
 class Simulator:
     def __init__(self, num_qubits: int):
+        if type(num_qubits) is not int or not 1 <= num_qubits <= MAX_STATEVECTOR_QUBITS:
+            raise ValueError(
+                "local state-vector simulator supports 1 to %d qubits"
+                % MAX_STATEVECTOR_QUBITS
+            )
         self.n = num_qubits
         self.state = [0j] * (1 << num_qubits)
         self.state[0] = 1 + 0j
@@ -179,6 +197,7 @@ def probabilities(circuit: Circuit) -> dict[str, float]:
 
 
 def simulate(circuit: Circuit, shots: int) -> dict[str, int]:
+    _validate_shots(shots)
     state = _final_state(circuit)
 
     probs = [abs(amplitude) ** 2 for amplitude in state]
@@ -199,6 +218,13 @@ def simulate_with_noise(circuit: Circuit, shots: int, error_rate: float = 0.02) 
     用于教学演示「真机为何不完美」：模拟读取误差（bit-flip readout noise），
     让理想上确定的结果也出现少量错误比特，直观看到噪声把分布"抹平"。
     """
+    _validate_shots(shots)
+    if (
+        isinstance(error_rate, bool)
+        or not isinstance(error_rate, (int, float))
+        or not 0 <= error_rate <= 1
+    ):
+        raise ValueError("error_rate must be between 0 and 1")
     sim = Simulator(circuit.num_qubits)
     for gate in circuit.gates:
         sim.apply(gate)

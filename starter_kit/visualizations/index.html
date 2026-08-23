@@ -9,7 +9,7 @@
     --bg:#08090d; --bg2:#0d1016; --panel:#10141c; --panel2:#141925;
     --line:#222a37; --line2:#2c3646;
     --ink:#dbe2ea; --muted:#8b96a6; --faint:#5d6877;
-    --cyan:#37e0d0; --violet:#9f8bff; --amber:#f5b942; --green:#3ecf8e;
+    --cyan:#37e0d0; --l2-accent:#79c8cf; --amber:#f5b942; --green:#3ecf8e;
     --mono:"SF Mono","Cascadia Code","JetBrains Mono","Consolas","Menlo",monospace;
   }
   *{box-sizing:border-box;margin:0;padding:0}
@@ -20,7 +20,7 @@
     line-height:1.75; font-size:16px; -webkit-font-smoothing:antialiased;
     background-image:
       radial-gradient(1100px 560px at 18% -8%, rgba(55,224,208,.07), transparent 60%),
-      radial-gradient(950px 520px at 92% 8%, rgba(159,139,255,.07), transparent 60%),
+      radial-gradient(950px 520px at 92% 8%, rgba(121,200,207,.07), transparent 60%),
       linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
       linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px);
     background-size:auto,auto,34px 34px,34px 34px;
@@ -38,7 +38,7 @@
   .nav-links{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
   .nav-links a{color:var(--muted); font-size:14px; padding:6px 12px; border-radius:8px; transition:.2s}
   .nav-links a:hover{color:#fff; text-decoration:none; background:rgba(255,255,255,.05)}
-  .lab-entry{color:var(--violet) !important; border:1px solid rgba(159,139,255,.4); background:rgba(159,139,255,.08)}
+  .lab-entry{color:var(--l2-accent) !important; border:1px solid rgba(121,200,207,.4); background:rgba(121,200,207,.08)}
   .cave-entry{color:var(--amber) !important; border:1px solid rgba(245,185,66,.42); background:rgba(245,185,66,.08)}
 
   /* ===== Hero ===== */
@@ -79,8 +79,8 @@
   }
   .pipe-step.in{border-left:3px solid var(--faint)}
   .pipe-step.in .plv{background:var(--faint); color:#0b0d11}
-  .pipe-step.l2{border-left:3px solid var(--violet)}
-  .pipe-step.l2 .plv{background:var(--violet); color:#0c0a18}
+  .pipe-step.l2{border-left:3px solid var(--l2-accent)}
+  .pipe-step.l2 .plv{background:var(--l2-accent); color:#0c0a18}
   .pipe-step.qasm{border-left:3px solid var(--cyan)}
   .pipe-step.l1{border-left:3px solid var(--cyan)}
   .pipe-step.l1 .plv{background:var(--cyan)}
@@ -100,11 +100,11 @@
   /* ===== 三级任务 ===== */
   .level{margin-top:28px; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:24px 24px 22px}
   .level.l1{border-top:3px solid var(--cyan)}
-  .level.l2{border-top:3px solid var(--violet)}
+  .level.l2{border-top:3px solid var(--l2-accent)}
   .level.l3{border-top:3px solid var(--amber)}
   .level-head{display:flex; align-items:center; gap:12px; margin-bottom:16px}
   .lv-badge{font-family:var(--mono); font-weight:800; font-size:15px; color:#03181a; background:var(--cyan); border-radius:6px; padding:3px 10px}
-  .level.l2 .lv-badge{background:var(--violet); color:#0c0a18}
+  .level.l2 .lv-badge{background:var(--l2-accent); color:#0c0a18}
   .level.l3 .lv-badge{background:var(--amber); color:#1b1304}
   .level-head h3{font-size:22px; color:#fff; font-weight:800}
   .level-head .role{font-family:var(--mono); font-size:11px; letter-spacing:.16em; color:var(--faint); text-transform:uppercase}
@@ -115,7 +115,7 @@
   .level-grid3 pre{margin:0; font-size:12.5px}
 
   /* ===== 独立入口 CTA ===== */
-  .lab-card{margin-top:72px; background:linear-gradient(135deg, rgba(159,139,255,.12), rgba(55,224,208,.06)); border:1px solid rgba(159,139,255,.3); border-radius:16px; padding:34px 28px; text-align:center}
+  .lab-card{margin-top:72px; background:linear-gradient(135deg, rgba(121,200,207,.12), rgba(55,224,208,.06)); border:1px solid rgba(121,200,207,.3); border-radius:16px; padding:34px 28px; text-align:center}
   .lab-card h2{font-size:26px; color:#fff; font-weight:800}
   .lab-card p{margin-top:10px; color:var(--muted); font-size:15.5px}
   .lab-card .cta{margin-top:20px}
@@ -164,10 +164,10 @@
       </g>
       <rect x="54" y="19" width="30" height="18" rx="3" fill="none" stroke="#37e0d0" stroke-width="1.4"/>
       <text x="61" y="32" font-family="Consolas, monospace" font-size="13" fill="#37e0d0">H</text>
-      <circle cx="122" cy="28" r="4" fill="#9f8bff"/>
-      <circle cx="122" cy="68" r="9" fill="none" stroke="#9f8bff" stroke-width="1.6"/>
-      <line x1="113" y1="68" x2="131" y2="68" stroke="#9f8bff" stroke-width="1.4"/>
-      <line x1="122" y1="59" x2="122" y2="77" stroke="#9f8bff" stroke-width="1.4"/>
+      <circle cx="122" cy="28" r="4" fill="#79c8cf"/>
+      <circle cx="122" cy="68" r="9" fill="none" stroke="#79c8cf" stroke-width="1.6"/>
+      <line x1="113" y1="68" x2="131" y2="68" stroke="#79c8cf" stroke-width="1.4"/>
+      <line x1="122" y1="59" x2="122" y2="77" stroke="#79c8cf" stroke-width="1.4"/>
       <rect x="206" y="19" width="30" height="18" rx="3" fill="none" stroke="#3ecf8e" stroke-width="1.3"/>
       <text x="213" y="32" font-family="Consolas, monospace" font-size="13" fill="#3ecf8e">M</text>
       <rect x="206" y="59" width="30" height="18" rx="3" fill="none" stroke="#3ecf8e" stroke-width="1.3"/>

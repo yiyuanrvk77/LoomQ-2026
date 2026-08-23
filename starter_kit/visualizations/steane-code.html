@@ -1,34 +1,31 @@
-<div id="steane-code">
-  <h3>CSS 码 · Steane 7 比特码（syndrome 找错游戏）</h3>
-
-  <div class="viz-controls">
-    <label class="form-label" for="modeSel">模式</label>
-    <select id="modeSel" class="form-select">
-      <option value="free">自由练习</option>
-      <option value="challenge">找错挑战</option>
-    </select>
-    <button type="button" class="btn" id="bRandom">随机出一个错误</button>
-    <button type="button" class="btn btn-ghost" id="bReset">清空</button>
-    <span id="score" class="score"></span>
-  </div>
-
-  <svg id="grid" viewBox="0 0 360 200" role="img" aria-label="7 个物理比特和 3 位 syndrome"></svg>
-
-  <div id="status" class="status" role="status" aria-live="polite">点击一个比特放置错误，下方 syndrome 会是它的二进制编号。</div>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Steane 7 比特码 · LoomQ</title>
+<link rel="stylesheet" href="qec-games.css">
+</head>
+<body>
+<div id="steane-code" class="game-page" data-game="steane-code">
+  <header class="game-topbar"><a class="game-brand" href="../index.html">LOOMQ / ERROR FIELD</a><a class="game-back" href="lab.html">← 返回四个实验</a></header>
+  <main class="game-main">
+    <section class="game-hero"><div><p class="game-kicker">03 / 04 · 找错游戏</p><h1>Steane 7 比特码</h1><p>这里把 syndrome 变成一个真正可以玩的定位挑战：系统藏起错误，你读三位二进制影子，再点出它的物理比特。</p></div><div class="game-progress"><strong>STEANE CODE</strong>7 个物理比特 · 3 位 syndrome</div></section>
+    <div class="game-layout">
+      <section class="game-stage">
+        <div class="game-stage-head"><span>CHALLENGE FIELD / 7 PHYSICAL QUBITS</span><strong>点击节点作答</strong></div>
+        <div class="game-canvas"><svg id="grid" viewBox="0 0 360 200" role="img" aria-label="7 个物理比特和 3 位 syndrome"></svg></div>
+        <div class="game-stage-foot"><span>syndrome = 错误的地址影子</span><span>连续答对会形成连击</span></div>
+      </section>
+      <aside class="game-panel">
+        <div class="game-panel-head"><span class="game-panel-label">CONTROL / 03</span><h2>读影子，找本体</h2><p class="game-panel-copy">自由练习时直接放错；进入挑战后，系统会藏起错误，只留下 syndrome。</p></div>
+        <div class="game-steps"><div class="game-step"><b>01</b><span><strong>选择模式</strong><small>练习或挑战</small></span></div><div class="game-step"><b>02</b><span><strong>生成影子</strong><small>随机藏起一个错误</small></span></div><div class="game-step"><b>03</b><span><strong>点出地址</strong><small>答对就保持连击</small></span></div></div>
+        <div class="viz-controls"><label class="form-label" for="modeSel">模式</label><select id="modeSel" class="form-select"><option value="free">自由练习</option><option value="challenge">找错挑战</option></select><button type="button" class="btn btn-primary" id="bRandom">随机出一个错误</button><button type="button" class="btn btn-ghost" id="bReset">清空</button><span id="score" class="score"></span></div>
+        <div id="status" class="status" role="status" aria-live="polite">点击一个比特放置错误，下方 syndrome 会是它的二进制编号。</div><p class="game-hint">挑战模式下，粉色会在你作答后出现；先看金色 syndrome。</p>
+      </aside>
+    </div>
+  </main>
 </div>
-
-<style>
-#steane-code .q { fill: var(--card); stroke: var(--border); stroke-width: 1.5; }
-#steane-code .q.err { stroke: var(--destructive); stroke-width: 3; }
-#steane-code .qstate { fill: var(--foreground); font-size: 15px; }
-#steane-code .qname { fill: var(--muted-foreground); font-size: 11px; }
-#steane-code .errmark { fill: var(--destructive); font-size: 16px; }
-#steane-code .sbox { fill: var(--card); stroke: var(--border); stroke-width: 1.2; }
-#steane-code .sval { fill: var(--foreground); font-size: 16px; }
-#steane-code .sval.hit { fill: var(--viz-series-1); font-weight: 500; }
-#steane-code .score { color: var(--foreground); margin-left: 8px; }
-#steane-code .status { color: var(--foreground); margin-top: 10px; }
-</style>
 
 <script>
 (function () {
@@ -50,6 +47,10 @@
 
   for (var i = 0; i < 7; i++) {
     var g = document.createElementNS(NS, "g");
+    g.setAttribute("class", "qnode");
+    g.setAttribute("role", "button");
+    g.setAttribute("tabindex", "0");
+    g.setAttribute("aria-label", "选择 q" + (i + 1));
     var c = document.createElementNS(NS, "circle");
     c.setAttribute("cx", xs[i]); c.setAttribute("cy", 80); c.setAttribute("r", 25); c.setAttribute("class", "q");
     var nm = document.createElementNS(NS, "text");
@@ -59,7 +60,10 @@
     var mk = document.createElementNS(NS, "text");
     mk.setAttribute("x", xs[i] + 19); mk.setAttribute("y", 60); mk.setAttribute("text-anchor", "middle"); mk.setAttribute("class", "errmark"); mk.textContent = "✕";
     g.appendChild(c); g.appendChild(nm); g.appendChild(st); g.appendChild(mk);
-    g.addEventListener("click", function () { onQubit(i); });
+    g.addEventListener("click", (function (index) { return function () { onQubit(index); }; })(i));
+    g.addEventListener("keydown", (function (index) { return function (event) {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onQubit(index); }
+    }; })(i));
     svg.appendChild(g);
     circEls.push(c); stEls.push(st); mkEls.push(mk);
   }
@@ -83,7 +87,9 @@
       data[3] ^ data[4] ^ data[5] ^ data[6]
     ];
   }
-  function binToQ(s) { return s[0] * 4 + s[1] * 2 + s[2] * 1; }
+  // S1, S2, S3 are the low-to-high parity checks; reverse them when reading
+  // the syndrome as the physical-qubit address q1 ... q7.
+  function binToQ(s) { return s[2] * 4 + s[1] * 2 + s[0] * 1; }
 
   function render() {
     var s = syndrome();
@@ -149,3 +155,5 @@
   render();
 })();
 </script>
+</body>
+</html>

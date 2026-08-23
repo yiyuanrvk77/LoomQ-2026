@@ -17,6 +17,7 @@ import json
 import os
 import re
 import sys
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -26,6 +27,22 @@ try:
 except Exception:  # noqa: BLE001
     print("找不到 adapter.py，请把本文件放到 starter_kit/ 目录里运行。", file=sys.stderr)
     sys.exit(1)
+
+
+_VISUALIZATION_CONTENT_TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
+    ".svg": "image/svg+xml",
+}
+
+
+def _visualization_content_type(file: Path) -> str:
+    """Return a browser-safe MIME type for visualization assets."""
+    return _VISUALIZATION_CONTENT_TYPES.get(
+        file.suffix.lower(), "application/octet-stream"
+    )
 
 
 def load_dotenv() -> None:
@@ -60,7 +77,7 @@ def _circuit_diagram(qasm: str) -> dict:
 
 
 def _load_real_bell() -> dict | None:
-    """读取真机 Bell 态实测结果（若无则返回 None），用于展示真实噪声。"""
+    """Load Bell QPU probabilities only when the evidence schema is complete."""
     path = Path(__file__).parent / "evidence" / "files" / "spinq_gemini_bell.json"
     if not path.exists():
         return None
@@ -68,14 +85,57 @@ def _load_real_bell() -> dict | None:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
-    probs = data.get("probabilities") or data.get("counts")
-    if not probs:
+    return _validated_real_probabilities(data)
+
+
+def _validated_real_probabilities(data: dict) -> dict | None:
+    """Return probabilities only for evidence matching the official result schema.
+
+    Platform-console traceability is intentionally a human review step; this
+    function validates only fields that can be checked from the archived JSON.
+    """
+    if not isinstance(data, dict):
         return None
-    # 归一化为概率（counts 是整数时除以总和）
-    total = sum(probs.values())
-    if total > 1.5:  # 是 counts
-        return {k: v / total for k, v in probs.items()}
-    return dict(probs)
+    counts = data.get("counts")
+    shots = data.get("shots")
+    backend = data.get("backend")
+    job_id = data.get("job_id")
+    bit_order = data.get("bit_order")
+    timestamp = data.get("timestamp")
+    meta = data.get("meta", {})
+    try:
+        created_at = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+    except (AttributeError, TypeError, ValueError):
+        return None
+    competition_start = datetime(2026, 7, 31, 16, 0, tzinfo=timezone.utc)
+    deadline = datetime(2026, 8, 25, 4, 0, tzinfo=timezone.utc)
+    peak_states = set()
+    if isinstance(counts, dict) and counts:
+        peak = max(counts.values())
+        peak_states = {key for key, value in counts.items() if value == peak}
+    if (
+        not isinstance(counts, dict)
+        or not counts
+        or type(shots) is not int
+        or shots <= 0
+        or not isinstance(backend, str)
+        or not backend.strip()
+        or not isinstance(job_id, str)
+        or not job_id.strip()
+        or bit_order != "little"
+        or not isinstance(meta, dict)
+        or meta.get("is_mock") is True
+        or created_at.tzinfo is None
+        or created_at.astimezone(timezone.utc) < competition_start
+        or created_at.astimezone(timezone.utc) > deadline
+        or any(not isinstance(key, str) or re.fullmatch(r"[01]{2}", key) is None for key in counts)
+        or any(type(value) is not int or value < 0 for value in counts.values())
+        or sum(counts.values()) != shots
+        or not peak_states
+        or not peak_states.issubset({"00", "11"})
+    ):
+        return None
+    return {key: value / shots for key, value in counts.items()}
 
 
 def _circuit_summary(circuit) -> str:
@@ -83,7 +143,7 @@ def _circuit_summary(circuit) -> str:
     names = [g.name for g in circuit.gates]
     n = circuit.num_qubits
     if n == 2 and sorted(names) == ["cx", "h"]:
-        return "这是「贝尔态」：两个比特总是同时为 0、或同时为 1——这就是量子纠缠。真机因为噪声，会有约 10% 的偏差（看红色那组）。"
+        return "这是「贝尔态」：两个比特总是同时为 0、或同时为 1——这就是量子纠缠。蓝色噪声模拟展示了环境扰动可能带来的偏差。"
     if names and names[0] == "h" and len(names) >= 2 and all(x == "cx" for x in names[1:]):
         return "这是「GHZ 纠缠态」：所有比特的测量结果总是全同（要么全 0、要么全 1），是比贝尔态更「长」的纠缠链。"
     if n == 1 and names == ["h"]:
@@ -586,17 +646,20 @@ classical { if (c[0] == 1) { r1 = 7; } else { r1 = 3; } }
     Object.keys(data.counts || {}).forEach(function (k) { keys[k] = true; });
     Object.keys(data.noisy || {}).forEach(function (k) { keys[k] = true; });
     if (data.real) { Object.keys(data.real).forEach(function (k) { keys[k] = true; }); }
-    var html = '<div class="compare"><p class="hint">概率对比（理想 / 实测 / 噪声模拟 / 真机）：</p>';
+    var html = '<div class="compare"><p class="hint">概率对比（理想 / 实测 / 噪声模拟' + (data.real ? ' / 真机附件' : '') + '）：</p>';
     Object.keys(keys).sort().forEach(function (key) {
       html += '<div class="cmp-row"><span class="cmp-key">' + key + '</span>';
       var iv = data.ideal ? (data.ideal[key] || 0) : 0;
       var cv = data.counts ? (data.counts[key] || 0) / data.shots : 0;
       var nv = data.noisy ? (data.noisy[key] || 0) : 0;
       var rv = data.real ? (data.real[key] || 0) : 0;
-      html += cmpBar(iv, '#94a3b8') + cmpBar(cv, '#2563eb') + cmpBar(nv, '#f59e0b') + cmpBar(rv, '#dc2626');
+      html += cmpBar(iv, '#94a3b8') + cmpBar(cv, '#2563eb') + cmpBar(nv, '#f59e0b');
+      if (data.real) html += cmpBar(rv, '#dc2626');
       html += '</div>';
     });
-    html += '<div class="legend"><span style="background:#94a3b8"></span>理想（无噪声） <span style="background:#2563eb"></span>实测采样 <span style="background:#f59e0b"></span>噪声模拟 <span style="background:#dc2626"></span>真机（SpinQ Gemini）</div>';
+    html += '<div class="legend"><span style="background:#94a3b8"></span>理想（无噪声） <span style="background:#2563eb"></span>实测采样 <span style="background:#f59e0b"></span>噪声模拟';
+    if (data.real) html += ' <span style="background:#dc2626"></span>真机附件（Schema 已核验，平台溯源待人工）';
+    html += '</div>';
     html += '</div>';
     return html;
   }
@@ -670,6 +733,10 @@ class Handler(BaseHTTPRequestHandler):
         if request_path.startswith("/visualizations/"):
             self._serve_visualization(request_path)
             return
+
+        if request_path.startswith("/assets/"):
+            self._serve_asset(request_path)
+            return
         # 可视化页里「回 QUANTUM_101」等文档链接
         if request_path.startswith("/QUANTUM_101.md"):
             self._serve_doc("QUANTUM_101.md")
@@ -694,12 +761,7 @@ class Handler(BaseHTTPRequestHandler):
         if not file.is_file():
             self._send_plain(404, "Not Found")
             return
-        content_type = (
-            "text/html; charset=utf-8"
-            if file.suffix == ".html"
-            else "text/plain; charset=utf-8"
-        )
-        self._send_bytes(200, content_type, file.read_bytes())
+        self._send_bytes(200, _visualization_content_type(file), file.read_bytes())
 
     def _serve_doc(self, filename: str) -> None:
         file = Path(__file__).parent / filename
@@ -714,6 +776,67 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def _serve_asset(self, url_path: str) -> None:
+        """Serve bundled visual assets without allowing directory traversal."""
+        relative = url_path[len("/assets/"):].split("?")[0].split("#")[0]
+        root = (Path(__file__).parent / "assets").resolve()
+        file = (root / relative).resolve()
+        if root not in file.parents or not file.is_file():
+            self._send_plain(404, "Asset not found")
+            return
+        mime = {
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".webp": "image/webp",
+            ".mp4": "video/mp4",
+            ".webm": "video/webm",
+            ".ogg": "audio/ogg",
+        }.get(file.suffix.lower(), "application/octet-stream")
+        size = file.stat().st_size
+        start, end = 0, size - 1
+        range_header = self.headers.get("Range", "")
+        partial = False
+        if range_header.startswith("bytes=") and "," not in range_header:
+            bounds = range_header[6:].split("-", 1)
+            try:
+                if bounds[0]:
+                    start = int(bounds[0])
+                    end = int(bounds[1]) if bounds[1] else end
+                elif bounds[1]:
+                    suffix = min(size, int(bounds[1]))
+                    start = size - suffix
+                if start < 0 or start >= size or end < start:
+                    raise ValueError
+                end = min(end, size - 1)
+                partial = True
+            except ValueError:
+                self.send_response(416)
+                self.send_header("Content-Range", f"bytes */{size}")
+                self.end_headers()
+                return
+        length = end - start + 1
+        self.send_response(206 if partial else 200)
+        self.send_header("Content-Type", mime)
+        self.send_header("Content-Length", str(length))
+        self.send_header("Accept-Ranges", "bytes")
+        if partial:
+            self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+        self.send_header("Cache-Control", "public, max-age=3600")
+        self.end_headers()
+        with file.open("rb") as handle:
+            handle.seek(start)
+            remaining = length
+            try:
+                while remaining:
+                    chunk = handle.read(min(64 * 1024, remaining))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    remaining -= len(chunk)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
 
     def _send_plain(self, code: int, text: str) -> None:
         self._send_bytes(code, "text/plain; charset=utf-8", text.encode("utf-8"))

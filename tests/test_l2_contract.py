@@ -46,15 +46,37 @@ class PublicL2ContractTests(unittest.TestCase):
         adapter = importlib.import_module("starter_kit.adapter")
 
         self.assertEqual(adapter.SUPPORTED_TARGETS, ("spinq", "originq", "braket"))
+        concept = adapter.concept_answer("什么是贝尔态？")
+        self.assertEqual(concept["name"], "贝尔态")
+        self.assertIn("OPENQASM 2.0;", concept["qasm"])
 
     def test_adapter_rejects_invalid_shots_before_execution(self):
         adapter = importlib.import_module("starter_kit.adapter")
         qasm = (ROOT / "starter_kit" / "circuits" / "bell.qasm").read_text(encoding="utf-8")
 
-        for invalid in (0, -1, True, 1.5):
+        for invalid in (0, -1, True, 1.5, 1_000_001):
             with self.subTest(shots=invalid):
                 with self.assertRaisesRegex(ValueError, "shots must be a positive integer"):
                     adapter.run(qasm, "braket", invalid)
+
+    def test_invalid_vendor_counts_fall_back_to_the_internal_simulator(self):
+        adapter = importlib.import_module("starter_kit.adapter")
+        qasm = (ROOT / "starter_kit" / "circuits" / "bell.qasm").read_text(encoding="utf-8")
+        with mock.patch.object(adapter, "run_backend", return_value=({"0": 1}, "bad-sdk-job")):
+            result = adapter.run(qasm, "braket", 32)
+        self.assertEqual(sum(result["counts"].values()), 32)
+        self.assertEqual(result["meta"]["source"], "internal_simulator_fallback")
+        self.assertTrue(result["job_id"].startswith("local-"))
+
+    def test_local_sdk_task_ids_cannot_be_mistaken_for_hardware_evidence(self):
+        adapter = importlib.import_module("starter_kit.adapter")
+        qasm = (ROOT / "starter_kit" / "circuits" / "bell.qasm").read_text(encoding="utf-8")
+        counts = {"00": 16, "11": 16}
+        with mock.patch.object(adapter, "run_backend", return_value=(counts, "sdk-task-123")):
+            result = adapter.run(qasm, "braket", 32)
+        self.assertEqual(result["job_id"], "local-braket-sdk-task-123")
+        self.assertEqual(result["meta"]["local_sdk_job_id"], "sdk-task-123")
+        self.assertFalse(result["meta"]["is_hardware"])
 
     def test_policy_is_the_published_formal_deepseek_budget(self):
         policy = json.loads(POLICY.read_text(encoding="utf-8"))
@@ -85,7 +107,14 @@ class PublicL2ContractTests(unittest.TestCase):
                 "LOOMQ_LLM_TIMEOUT_SECONDS": "2",
                 }
             with mock.patch.dict(os.environ, environment, clear=True):
-                response = load_client().chat_completion([{"role": "user", "content": "hello"}])
+                response = load_client().chat_completion(
+                    [{"role": "user", "content": "hello"}],
+                    model="must-not-override",
+                    stream=True,
+                    temperature=1,
+                    max_tokens=1,
+                    thinking={"type": "enabled"},
+                )
         finally:
             server.shutdown()
             server.server_close()
@@ -93,6 +122,9 @@ class PublicL2ContractTests(unittest.TestCase):
         self.assertEqual(response["choices"][0]["message"]["content"], "ok")
         self.assertEqual(CompatibleAPIHandler.request_payload["model"], "local-model")
         self.assertEqual(CompatibleAPIHandler.request_payload["temperature"], 0)
+        self.assertFalse(CompatibleAPIHandler.request_payload["stream"])
+        self.assertEqual(CompatibleAPIHandler.request_payload["max_tokens"], 4096)
+        self.assertNotIn("thinking", CompatibleAPIHandler.request_payload)
 
 
 if __name__ == "__main__":

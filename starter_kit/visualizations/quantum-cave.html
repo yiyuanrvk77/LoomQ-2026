@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LoomQ Quantum Cave</title>
 <style>
-  :root { --void:#071019; --deep:#0b1722; --surface:#101d29; --surface-2:#142534; --line:#274052; --ink:#e9f1f0; --muted:#8ea5aa; --faint:#60757b; --teal:#6fe7d9; --cyan:#82c7ff; --amber:#f2c66d; --rose:#ee8eaa; --green:#9be4a8; --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace; }
+  :root { --void:#071019; --deep:#0b1722; --surface:#101d29; --surface-2:#142534; --line:#274052; --ink:#e9f1f0; --muted:#8ea5aa; --faint:#60757b; --cobalt:#315fae; --ideal:#6fe7d9; --sampled:#f2c66d; --noisy:#82c7ff; --real:#ee8eaa; --teal:var(--ideal); --cyan:var(--noisy); --amber:var(--sampled); --rose:var(--real); --green:#9be4a8; --journey-accent:var(--teal); --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace; }
   * { box-sizing:border-box; }
   [hidden] { display:none !important; }
   html { background:var(--void); }
@@ -13,6 +13,7 @@
   button,input,textarea { font:inherit; }
   button { cursor:pointer; }
   button:focus-visible,input:focus-visible,textarea:focus-visible { outline:2px solid var(--amber); outline-offset:3px; }
+  .intro-mode button:focus-visible,.intro-mode textarea:focus-visible { outline-color:var(--journey-accent); }
   .app { width:min(1500px,100%); margin:0 auto; padding:24px 28px 40px; }
   .topbar { display:flex; align-items:center; justify-content:space-between; gap:18px; border-bottom:1px solid var(--line); padding-bottom:18px; }
   .brand { display:flex; align-items:center; gap:12px; }
@@ -28,7 +29,7 @@
   .lab-grid { display:grid; grid-template-columns:238px minmax(0,1fr) 300px; gap:20px; padding-top:24px; }
   .agent-rail { min-width:0; }
   .eyebrow { color:var(--amber); font:11px var(--mono); letter-spacing:.14em; text-transform:uppercase; margin:0 0 8px; }
-  h1 { font-size:clamp(24px,3vw,38px); line-height:1.08; letter-spacing:-.03em; margin:0; font-weight:700; }
+  h1 { font-size:38px; line-height:1.08; letter-spacing:0; margin:0; font-weight:700; }
   .intro { color:var(--muted); font-size:13px; margin:12px 0 22px; }
   .agent-chain { position:relative; display:grid; gap:4px; }
   .agent-chain:before { content:""; position:absolute; left:18px; top:21px; bottom:21px; width:1px; background:var(--line); }
@@ -56,41 +57,55 @@
   .stage-meter { color:var(--amber); font:12px var(--mono); white-space:nowrap; }
   .stage { position:relative; min-height:560px; overflow:hidden; border:1px solid var(--line); background:#08131e; }
   #quantum-cave-canvas { display:block; width:100%; height:100%; min-height:560px; cursor:crosshair; touch-action:none; }
-  .intro-mode .lab-grid { grid-template-columns:minmax(0,1fr); }
+  body:has(.intro-mode) { overflow:hidden; }
+  .intro-mode { width:100%; max-width:none; padding:0; }
+  .intro-mode .topbar { position:absolute; z-index:8; left:0; right:0; top:0; padding:24px 32px; border-bottom:0; background:linear-gradient(180deg,rgba(3,7,24,.78),rgba(3,7,24,0)); }
+  .intro-mode .brand small { color:rgba(190,207,205,.68); }
+  .intro-mode .top-status { color:var(--journey-accent); transition:color .45s ease; }
+  .intro-mode .lab-grid { display:block; padding:0; }
+  .intro-mode .stage-column { height:100svh; }
   .intro-mode .agent-rail,.intro-mode .control-rail,.intro-mode .bottom-grid { display:none; }
   .intro-mode .stage-head { display:none; }
-  .intro-mode .stage { min-height:calc(100vh - 145px); border-color:#355365; }
-  .intro-mode #quantum-cave-canvas { min-height:calc(100vh - 145px); }
-  .intro-mode .stage-center { visibility:hidden; }
-  .intro-journey { position:absolute; z-index:3; left:12%; right:12%; top:50%; transform:translateY(-50%); max-width:700px; margin:0 auto; text-align:center; pointer-events:none; }
+  .intro-mode .stage { height:100svh; min-height:0; border:0; background:#030617; }
+  .intro-mode #quantum-cave-canvas { height:100%; min-height:0; cursor:none; }
+  .intro-mode .stage-center { display:none; }
+  .intro-mode .stage-topline { top:92px; left:32px; right:32px; }
+  .intro-mode .stage-bottom { bottom:28px; left:32px; right:32px; }
+  .intro-mode .stage-legend,.intro-mode .observe-value { display:none; }
+  .intro-journey { position:absolute; z-index:3; left:7%; right:auto; bottom:11%; top:auto; transform:none; width:min(610px,78%); margin:0; text-align:left; pointer-events:none; transition:opacity .6s ease,transform .6s ease; }
+  .intro-journey.is-fading { opacity:0; transform:translateY(12px); }
   .intro-journey button,.intro-journey textarea { pointer-events:auto; }
-  .intro-phase { color:var(--amber); font:11px var(--mono); letter-spacing:.12em; text-transform:uppercase; }
-  .intro-journey h2 { max-width:680px; margin:18px auto 10px; color:var(--ink); font-size:48px; line-height:1.12; font-weight:600; text-wrap:balance; text-shadow:0 3px 22px rgba(7,16,25,.95); }
-  .intro-journey p { max-width:540px; margin:0 auto; color:var(--muted); font-size:15px; line-height:1.8; text-shadow:0 2px 12px rgba(7,16,25,.95); }
-  .intro-action { margin-top:25px; border:1px solid var(--teal); background:var(--teal); color:#06211e; padding:12px 20px; border-radius:3px; font-weight:700; }
-  .intro-action:hover { background:#a0f1e5; }
-  .intro-quiet { display:block; width:max-content; max-width:100%; margin:14px auto 0; padding:3px 0; border:0; border-bottom:1px solid transparent; background:transparent; color:var(--muted); font-size:12px; }
+  .intro-phase { color:var(--journey-accent); font:11px var(--mono); letter-spacing:.12em; text-transform:uppercase; text-shadow:0 1px 12px #03070b; transition:color .45s ease; }
+  .intro-journey h2 { max-width:610px; margin:16px 0 9px; color:#f0eee7; font-size:62px; line-height:1.08; font-weight:500; letter-spacing:0; text-wrap:balance; text-shadow:0 3px 28px rgba(1,4,6,.98); }
+  .intro-journey p { max-width:520px; margin:0; color:rgba(219,226,222,.76); font-size:14px; line-height:1.8; text-shadow:0 2px 15px rgba(1,4,6,.98); }
+  .intro-action { margin-top:22px; border:0; border-bottom:1px solid var(--journey-accent); background:transparent; color:var(--journey-accent); padding:5px 0 4px; border-radius:0; font:12px var(--mono); letter-spacing:.03em; transition:color .45s ease,border-color .45s ease; }
+  .intro-action:hover { color:var(--ink); border-color:var(--ink); }
+  .intro-quiet { display:block; width:max-content; max-width:100%; margin:14px 0 0; padding:3px 0; border:0; border-bottom:1px solid transparent; background:transparent; color:rgba(190,207,205,.66); font-size:12px; }
   .intro-quiet:hover { color:var(--ink); border-color:var(--teal); }
   .intro-prompt-wrap { max-width:540px; margin:18px auto 0; }
-  .intro-prompt { min-height:74px; background:rgba(9,22,33,.82); text-align:left; }
+  .intro-prompt { min-height:74px; background:rgba(9,22,33,.86); text-align:left; }
   .intro-choices { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-top:20px; }
-  .intro-choice { border:1px solid var(--line); background:rgba(9,22,33,.82); color:var(--muted); padding:10px 13px; border-radius:3px; font-size:12px; }
+  .intro-choice { border:1px solid var(--line); background:rgba(9,22,33,.86); color:var(--muted); padding:10px 13px; border-radius:3px; font-size:12px; }
   .intro-choice:hover,.intro-choice[aria-pressed="true"] { border-color:var(--amber); color:var(--amber); }
   .intro-replay { display:none; border:0; background:transparent; color:var(--muted); padding:0; }
   .intro-replay.is-visible { display:inline-block; }
   .stage-topline { position:absolute; left:20px; right:20px; top:17px; display:flex; justify-content:space-between; gap:10px; pointer-events:none; }
   .stage-label { color:var(--muted); font:11px var(--mono); letter-spacing:.1em; }
   .stage-live { color:var(--teal); font:11px var(--mono); }
+  .intro-mode .stage-live { color:var(--journey-accent); transition:color .45s ease; }
   .stage-center { position:absolute; left:50%; top:48%; transform:translate(-50%,-50%); width:min(78%,420px); text-align:center; pointer-events:none; }
-  .shadow-state { color:var(--amber); font:clamp(28px,5vw,58px) var(--mono); letter-spacing:.06em; text-shadow:0 0 26px rgba(242,198,109,.38); }
+  .shadow-state { color:var(--amber); font:58px var(--mono); letter-spacing:.06em; text-shadow:0 0 26px rgba(242,198,109,.38); }
   .shadow-caption { color:var(--muted); font-size:12px; margin-top:8px; }
   .stage-note { min-height:22px; color:var(--ink); font-size:13px; margin-top:17px; }
   .stage-bottom { position:absolute; left:20px; right:20px; bottom:16px; display:flex; justify-content:space-between; gap:14px; align-items:end; pointer-events:none; }
   .stage-legend { color:var(--faint); font-size:11px; }
   .legend-dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:5px; background:var(--teal); }
   .observe-value { color:var(--amber); font:12px var(--mono); }
-  .sensory-toggle { pointer-events:auto; border:1px solid var(--line); background:rgba(8,19,30,.76); color:var(--muted); padding:7px 9px; border-radius:3px; font:11px var(--mono); }
+  .sensory-toggle { pointer-events:auto; border:0; border-bottom:1px solid rgba(190,207,205,.4); background:transparent; color:rgba(190,207,205,.7); padding:5px 0; border-radius:0; font:11px var(--mono); }
   .sensory-toggle:hover,.sensory-toggle[aria-pressed="true"] { border-color:var(--amber); color:var(--amber); }
+  .intro-mode .sensory-toggle[aria-pressed="true"] { border-color:var(--journey-accent); color:var(--journey-accent); transition:color .45s ease,border-color .45s ease; }
+  .media-sources { position:absolute; width:1px; height:1px; overflow:hidden; opacity:0; pointer-events:none; }
+  .media-sources video,.media-sources img { display:block; width:1px; height:1px; }
   .control-rail { min-width:0; border-left:1px solid var(--line); padding-left:20px; }
   .control-label { color:var(--faint); font:11px var(--mono); letter-spacing:.08em; }
   .control-rail h2 { font-size:18px; margin:7px 0 5px; }
@@ -129,17 +144,17 @@
   .bar-row { display:grid; grid-template-columns:44px 1fr 48px; gap:7px; align-items:center; color:var(--muted); font:11px var(--mono); }
   .bar-track { height:8px; background:#162733; overflow:hidden; }
   .bar-fill { height:100%; transition:width .35s ease; }
-  .bar-fill.ideal { background:var(--teal); }
-  .bar-fill.sampled { background:var(--amber); }
-  .bar-fill.noisy { background:var(--cyan); }
-  .bar-fill.real { background:var(--rose); }
+  .bar-fill.ideal { background:var(--ideal); }
+  .bar-fill.sampled { background:var(--sampled); }
+  .bar-fill.noisy { background:var(--noisy); }
+  .bar-fill.real { background:var(--real); }
   .evidence-note { color:var(--muted); font-size:12px; margin:13px 0 0; }
   .evidence-note strong { color:var(--ink); font-weight:650; }
   .empty-state { color:var(--faint); font-size:12px; padding:18px 0; }
   .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
   @media (max-width:1180px) { .lab-grid { grid-template-columns:210px minmax(0,1fr); } .control-rail { grid-column:1 / -1; border-left:0; border-top:1px solid var(--line); padding:20px 0 0; display:grid; grid-template-columns:1.2fr .8fr; gap:26px; } .control-rail .control-block { margin-top:0; } }
-  @media (max-width:760px) { .app { padding:17px 14px 28px; } .topbar { align-items:flex-start; } .top-actions { flex-wrap:wrap; justify-content:flex-end; } .top-status { width:100%; text-align:right; order:2; } .lab-grid { grid-template-columns:1fr; gap:18px; } .agent-rail { display:grid; grid-template-columns:1fr 1fr; gap:14px; } .agent-rail h1,.agent-rail .intro { grid-column:1 / -1; } .agent-chain { grid-column:1 / -1; grid-template-columns:repeat(5,1fr); gap:4px; } .agent-chain:before { left:9%; right:9%; top:18px; bottom:auto; width:auto; height:1px; } .agent-node { display:block; min-height:0; padding:0; text-align:center; border:0; } .agent-node[aria-pressed="true"] { background:transparent; } .agent-orb { margin:0 auto 6px; width:34px; height:34px; } .agent-node strong { font-size:10px; white-space:nowrap; } .agent-node small { display:none; } .agent-inspector { margin-top:0; padding-top:0; border-top:0; } .stage { min-height:430px; } #quantum-cave-canvas { min-height:430px; } .bottom-grid { grid-template-columns:1fr; } .control-rail { display:block; } .control-rail .control-block { margin-top:16px; } }
-  @media (max-width:760px) { .intro-mode .stage { min-height:calc(100vh - 130px); } .intro-mode #quantum-cave-canvas { min-height:calc(100vh - 130px); } .intro-journey { left:16px; right:16px; top:48%; } .intro-journey h2 { margin-top:14px; font-size:32px; } .intro-journey p { font-size:13px; line-height:1.7; } .intro-action { margin-top:20px; } }
+  @media (max-width:760px) { .app { padding:17px 14px 28px; } .topbar { align-items:flex-start; } .top-actions { flex-wrap:wrap; justify-content:flex-end; } .top-status { width:100%; text-align:right; order:2; } .lab-grid { grid-template-columns:1fr; gap:18px; } .agent-rail { display:grid; grid-template-columns:1fr 1fr; gap:14px; } .agent-rail h1,.agent-rail .intro { grid-column:1 / -1; } h1 { font-size:30px; } .agent-chain { grid-column:1 / -1; grid-template-columns:repeat(5,1fr); gap:4px; } .agent-chain:before { left:9%; right:9%; top:18px; bottom:auto; width:auto; height:1px; } .agent-node { display:block; min-height:0; padding:0; text-align:center; border:0; } .agent-node[aria-pressed="true"] { background:transparent; } .agent-orb { margin:0 auto 6px; width:34px; height:34px; } .agent-node strong { font-size:10px; white-space:nowrap; } .agent-node small { display:none; } .agent-inspector { margin-top:0; padding-top:0; border-top:0; } .stage { min-height:430px; } #quantum-cave-canvas { min-height:430px; } .shadow-state { font-size:36px; } .bottom-grid { grid-template-columns:1fr; } .control-rail { display:block; } .control-rail .control-block { margin-top:16px; } }
+  @media (max-width:760px) { .intro-mode { padding:0; } .intro-mode .topbar { padding:17px 16px; } .intro-mode .top-actions { display:none; } .intro-mode .stage-topline { top:74px; left:16px; right:16px; } .intro-mode .stage-bottom { bottom:18px; left:16px; right:16px; } .intro-journey { left:16px; right:16px; bottom:12%; width:auto; } .intro-journey h2 { margin-top:14px; font-size:32px; } .intro-journey p { font-size:13px; line-height:1.7; } .intro-action { margin-top:20px; } }
   @media (prefers-reduced-motion:reduce) { *,*:before,*:after { scroll-behavior:auto !important; transition:none !important; animation:none !important; } }
 </style>
 </head>
@@ -147,12 +162,12 @@
 <div class="app intro-mode" id="quantum-cave-app">
   <header class="topbar">
     <div class="brand"><span class="brand-mark" aria-hidden="true"></span><div><strong>LOOMQ / QUANTUM CAVE</strong><small>一个可观察、可修改、可复现的量子实验</small></div></div>
-    <div class="top-actions"><span class="top-status" id="top-status">CAVE ENTRY · READY</span><button class="ghost-link intro-replay" id="intro-replay" type="button">重新走一遍</button><a class="ghost-link" href="/visualizations/index.html">实验室索引</a><a class="ghost-link" href="/classic">完整 Agent 工作台</a></div>
+    <div class="top-actions"><span class="top-status" id="top-status">SYNTAX WALL · READY</span><button class="ghost-link intro-replay" id="intro-replay" type="button">重新走一遍</button><a class="ghost-link" href="/visualizations/index.html">实验室索引</a><a class="ghost-link" href="/classic">完整 Agent 工作台</a></div>
   </header>
 
   <main class="lab-grid">
     <aside class="agent-rail" aria-label="智能体协作图谱">
-      <div><p class="eyebrow">L2 / agent field</p><h1>让影子<br>自己说话。</h1><p class="intro">先别急着学会 Python。洞里有一群看不见的舞者，我们只能让光落到墙上，再从影子猜它们发生了什么。</p><div class="story-bridge" aria-label="量子洞穴引入"><p class="story-line">你只要用自己的话问一句：<br>“我想看看，什么会一起出现？”</p><p>洞穴会替你把问题变成一小段舞步，反复走过，再把留下的影子带回来。</p><p class="story-map">舞步 = 状态变化　灯光 = 测量　影子 = 证据</p></div></div>
+      <div><p class="eyebrow">L2 / agent field</p><h1>让影子<br>自己说话。</h1><p class="intro">先别急着学会 Python。QASM 是舞步的记谱，不是舞步本身；一次测量是影子，也不是完整状态。</p><div class="story-bridge" aria-label="量子洞穴引入"><p class="story-line">你只要用自己的话问一句：<br>“我想看看，什么会一起出现？”</p><p>洞穴会把问题变成可执行的舞步，先让你猜一次，再反复运行，用分布而不是术语回答。</p><p class="story-map">舞步 = 状态变化　观看 = 测量　重复的影子 = 证据</p></div></div>
       <div class="agent-chain" role="list" aria-label="实验智能体阶段">
         <button class="agent-node active" type="button" role="listitem" aria-pressed="true" data-agent="intent"><span class="agent-orb">01</span><span><strong>意图</strong><small>听懂你要看什么</small></span></button>
         <button class="agent-node" type="button" role="listitem" aria-pressed="false" data-agent="circuit"><span class="agent-orb">02</span><span><strong>电路</strong><small>搭出可执行路径</small></span></button>
@@ -166,19 +181,25 @@
     <section class="stage-column" aria-label="量子洞穴主舞台">
       <div class="stage-head"><div><h2>洞内观测场</h2><p>先看舞步，再看影子：粒子是变化中的状态，中央留下的是测量后的证据。</p></div><span class="stage-meter" id="stage-meter">PHASE 01 / 05</span></div>
       <div class="stage">
-        <canvas id="quantum-cave-canvas" aria-label="可点击的量子状态粒子场"></canvas>
+        <canvas id="quantum-cave-canvas" aria-label="可拖动的 Python 语法墙与量子状态场"></canvas>
+        <div class="media-sources" aria-hidden="true">
+          <img id="cave-galaxy" src="../assets/quantum-cave/galaxy.png" alt="">
+          <video id="cave-fire-close" src="../assets/quantum-cave/fire-close.mp4" muted loop playsinline preload="auto"></video>
+          <video id="cave-fire-logs" src="../assets/quantum-cave/fire-logs.mp4" muted loop playsinline preload="auto"></video>
+          <video id="cave-silhouette" src="../assets/quantum-cave/ballerina-silhouette.mp4" muted loop playsinline preload="auto"></video>
+        </div>
         <section class="intro-journey" id="intro-journey" aria-live="polite" aria-label="量子洞穴开场引导">
           <div class="intro-phase" id="intro-phase">01 / 05 · 听懂好奇</div>
-          <h2 id="intro-title">有一群舞者，正在暗处变化。</h2>
-          <p id="intro-copy">你看不到它们，只看见一束光投在墙上的影子。</p>
+          <h2 id="intro-title">先碰一下面前的墙。</h2>
+          <p id="intro-copy">它由熟悉的语法组成。划过它，看看代码没有说出的那一层。</p>
           <div class="intro-prompt-wrap" id="intro-prompt-wrap" hidden><label class="sr-only" for="intro-prompt">你想观察的现象</label><textarea class="intro-prompt" id="intro-prompt" placeholder="例如：我想看看两个比特会不会一起出现"></textarea></div>
           <div class="intro-choices" id="intro-choices" hidden><button class="intro-choice" type="button" data-intro-prediction="correlated">我猜：会一起出现</button><button class="intro-choice" type="button" data-intro-prediction="uncertain">我还不确定</button></div>
           <button class="intro-action" id="intro-action" type="button">走近一点</button>
           <button class="intro-quiet" id="intro-skip" type="button">直接说出一个问题</button>
         </section>
-        <div class="stage-topline"><span class="stage-label">THE CAVE / PROJECTED REALITY</span><span class="stage-live" id="stage-live">等待实验</span></div>
+        <div class="stage-topline"><span class="stage-label">THE WALL / PROJECTED SYNTAX</span><span class="stage-live" id="stage-live">等待实验</span></div>
         <div class="stage-center"><div class="shadow-state" id="shadow-state">· · ·</div><div class="shadow-caption" id="shadow-caption">舞步还在暗处。墙上暂时没有影子。</div><div class="stage-note" id="stage-note">先用一句自然语言告诉洞穴，你想看见什么。</div></div>
-        <div class="stage-bottom"><span class="stage-legend"><i class="legend-dot"></i>可观测样本 <span id="particle-count">72</span></span><button class="sensory-toggle" id="sensory-toggle" type="button" aria-pressed="false">听见影子</button><span class="observe-value">观测 <b id="observe-stage-value">35%</b></span></div>
+        <div class="stage-bottom"><span class="stage-legend"><i class="legend-dot"></i>可观测样本 <span id="particle-count">72</span></span><button class="sensory-toggle" id="sensory-toggle" type="button" aria-pressed="false">声音</button><span class="observe-value">观测 <b id="observe-stage-value">35%</b></span></div>
       </div>
     </section>
 
@@ -207,14 +228,66 @@
   var root = document.getElementById("quantum-cave-app");
   var canvas = document.getElementById("quantum-cave-canvas");
   var ctx = canvas.getContext("2d");
+  function cssToken(name, fallback) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+  }
+  var semanticPalette = {
+    ideal: { hex: cssToken("--ideal", "#6fe7d9"), hue: 174 },
+    sampled: { hex: cssToken("--sampled", "#f2c66d"), hue: 40 },
+    noisy: { hex: cssToken("--noisy", "#82c7ff"), hue: 207 },
+    real: { hex: cssToken("--real", "#ee8eaa"), hue: 343 }
+  };
+  var semanticSeries = [semanticPalette.ideal, semanticPalette.sampled, semanticPalette.noisy];
   var particles = [];
-  var pointer = { x: -999, y: -999, active: false };
-  var state = { phase: 0, observation: 35, shots: 1024, activeAgent: "intent", data: null, runId: 0, running: false, introStep: 0, introPrompt: "", introPrediction: "correlated", wallReveal: .18, soundEnabled: false };
+  var pointer = { x: -999, y: -999, active: false, down: false, hadGesture: false };
+  var state = { phase: 0, observation: 35, shots: 1024, activeAgent: "intent", data: null, runId: 0, running: false, introStep: 0, introStage: 0, introPrompt: "", introPrediction: "correlated", wallReveal: .18, skyReveal: .04, skyTarget: .04, figureReveal: 0, figureTarget: 0, fireEnergy: .22, gestureDistance: 0, gestureStarted: false, entryDepth: .04, entryTarget: .04, soundEnabled: false };
   var ripples = [];
+  var gesturePath = [];
+  var shadowPaths = [];
+  var introDust = [];
+  var rockLines = [];
   var audioContext = null;
+  var ambientGain = null;
+  var ambientOscillators = [];
+  var mediaCanvas = document.createElement("canvas");
+  var mediaCtx = mediaCanvas.getContext("2d", { willReadFrequently: true });
+  var silhouetteCanvas = document.createElement("canvas");
+  var silhouetteCtx = silhouetteCanvas.getContext("2d", { willReadFrequently: true });
+  var galaxyImage = document.getElementById("cave-galaxy");
+  var fireVideo = document.getElementById("cave-fire-close");
+  var fireLogsVideo = document.getElementById("cave-fire-logs");
+  var silhouetteVideo = document.getElementById("cave-silhouette");
+  var mediaFrame = 0;
+  var lastGesturePoint = null;
   var reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var bodyFont = getComputedStyle(document.body).fontFamily;
   var phaseNames = ["意图", "电路", "质疑", "模拟", "观测"];
+
+  function colorWithAlpha(color, alpha) {
+    var value = color.replace("#", "");
+    if (!/^[0-9a-f]{6}$/i.test(value)) return color;
+    return "rgba(" + parseInt(value.slice(0, 2), 16) + "," + parseInt(value.slice(2, 4), 16) + "," + parseInt(value.slice(4, 6), 16) + "," + alpha + ")";
+  }
+
+  function mixHex(first, second, amount) {
+    var a = first.replace("#", ""), b = second.replace("#", "");
+    if (!/^[0-9a-f]{6}$/i.test(a) || !/^[0-9a-f]{6}$/i.test(b)) return first;
+    var t = Math.max(0, Math.min(1, amount));
+    var red = Math.round(parseInt(a.slice(0, 2), 16) + (parseInt(b.slice(0, 2), 16) - parseInt(a.slice(0, 2), 16)) * t);
+    var green = Math.round(parseInt(a.slice(2, 4), 16) + (parseInt(b.slice(2, 4), 16) - parseInt(a.slice(2, 4), 16)) * t);
+    var blue = Math.round(parseInt(a.slice(4, 6), 16) + (parseInt(b.slice(4, 6), 16) - parseInt(a.slice(4, 6), 16)) * t);
+    return "#" + [red, green, blue].map(function (value) { return value.toString(16).padStart(2, "0"); }).join("");
+  }
+
+  function introAccent(stage) {
+    if (stage >= 3) return semanticPalette.ideal;
+    if (stage >= 2) return semanticPalette.sampled;
+    return { hex: "#79c8cf", hue: 185 };
+  }
+
+  function setIntroAccent(stage) {
+    root.style.setProperty("--journey-accent", introAccent(stage).hex);
+  }
   var agentData = {
     intent: { title: "听懂好奇", copy: "先接住你真正想知道的事，不要求你先说出术语。", output: "你说：两个比特会不会一起出现？" },
     circuit: { title: "编一段舞步", copy: "把问题翻译成一条可以重复走过的量子路径。", output: "产出：一段可执行的 QASM" },
@@ -223,8 +296,8 @@
     observer: { title: "读回影子", copy: "把理想、采样和噪声放在一起，看见证据如何改变。", output: "证据：等待出口结果" }
   };
   var introSteps = [
-    { phase: "01 / 05 · 听懂好奇", title: "有一群舞者，正在暗处变化。", copy: "你看不到它们，只看见一束光投在墙上的影子。", action: "走近一点", agent: "intent", index: 0 },
-    { phase: "02 / 05 · 编一段舞步", title: "把你的好奇说出来。", copy: "不用先学会 Python，也不用记住术语。告诉洞穴，你真正想看见什么。", action: "把这句话交给洞穴", agent: "circuit", index: 1 },
+    { phase: "01 / 05 · 听懂好奇", title: "先碰一下面前的墙。", copy: "它由熟悉的语法组成。划过它，看看代码没有说出的那一层。", action: "触碰语法墙", agent: "intent", index: 0 },
+    { phase: "02 / 05 · 编一段舞步", title: "你刚刚编出了一段舞步。", copy: "再走一段，光痕会留下来；它不是鼠标轨迹，而是墙面替你记下的第一句好奇。", action: "继续走一段", agent: "circuit", index: 1 },
     { phase: "03 / 05 · 先猜影子", title: "在开灯前，先猜一次。", copy: "如果两个比特有关系，它们会不会一起落在墙上？", action: "", agent: "critic", index: 2 },
     { phase: "04 / 05 · 反复走过", title: "同一段舞步，再走很多次。", copy: "一次是故事，很多次才会变成一组可以比较的影子。", action: "重复走过", agent: "simulator", index: 3 },
     { phase: "05 / 05 · 读回影子", title: "现在，让影子回来。", copy: "你先留下猜测，洞穴再把舞步、采样和证据交还给你。", action: "把影子带回来", agent: "observer", index: 4 }
@@ -254,14 +327,35 @@
 
   function enterIntro() {
     state.introStep = 0;
+    state.introStage = 0;
     state.introPrompt = "";
     state.introPrediction = "correlated";
     state.wallReveal = .18;
+    state.skyReveal = .04;
+    state.skyTarget = .04;
+    state.figureReveal = 0;
+    state.figureTarget = 0;
+    state.fireEnergy = .22;
+    state.gestureDistance = 0;
+    state.gestureStarted = false;
+    state.entryDepth = .04;
+    state.entryTarget = .04;
+    gesturePath = [];
+    shadowPaths = [];
     ripples = [];
+    pointer.down = false;
+    pointer.hadGesture = false;
+    lastGesturePoint = null;
+    [fireVideo, fireLogsVideo, silhouetteVideo].forEach(function (video) {
+      try { video.pause(); video.currentTime = 0; } catch (error) { /* media can be unavailable in file previews */ }
+    });
     root.classList.add("intro-mode");
     document.getElementById("intro-journey").hidden = false;
+    document.getElementById("intro-journey").classList.remove("is-fading");
     document.getElementById("intro-replay").classList.remove("is-visible");
+    setIntroAccent(0);
     setIntroStep(0);
+    startCaveMedia();
   }
 
   function exitIntro() {
@@ -274,31 +368,28 @@
   }
 
   function handleIntroAction() {
-    if (state.introStep === 0) {
-      setIntroStep(1);
-      window.setTimeout(function () { document.getElementById("intro-prompt").focus(); }, 0);
+    if (state.introStage === 0) {
+      beginGesture((canvas.__width || canvas.clientWidth || 700) * .52, (canvas.__height || canvas.clientHeight || 560) * .58);
+      endGesture();
+      state.gestureDistance += 28;
+      updateIntroReveal();
       return;
     }
-    if (state.introStep === 1) {
-      var prompt = document.getElementById("intro-prompt").value.trim();
-      if (!prompt) {
-        document.getElementById("intro-copy").textContent = "先写下你真正好奇的一句话，哪怕它还不够准确。";
-        document.getElementById("intro-prompt").focus();
-        return;
-      }
-      state.introPrompt = prompt;
-      setIntroStep(2);
+    if (state.introStage < 3) {
+      state.gestureDistance += state.introStage === 1 ? 145 : 220;
+      updateIntroReveal();
       return;
     }
-    if (state.introStep === 3) {
-      setIntroStep(4);
+    var promptField = document.getElementById("intro-prompt");
+    var experimentPrompt = promptField.value.trim();
+    if (!experimentPrompt) {
+      document.getElementById("intro-copy").textContent = "写下一句真正想看的现象。它不需要像代码，也不需要包含量子术语。";
+      promptField.focus();
       return;
     }
-    if (state.introStep === 4) {
-      var experimentPrompt = state.introPrompt || "我想看看两个比特会不会一起出现";
-      exitIntro();
-      runExperiment(experimentPrompt, state.introPrediction, "local");
-    }
+    state.introPrompt = experimentPrompt;
+    exitIntro();
+    runExperiment(experimentPrompt, state.introPrediction, "local");
   }
 
   function resizeCanvas() {
@@ -309,6 +400,7 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     canvas.__width = rect.width;
     canvas.__height = rect.height;
+    seedIntroScene(rect.width, rect.height);
     if (!particles.length) seedParticles();
   }
 
@@ -320,9 +412,441 @@
     for (var i = 0; i < count; i += 1) {
       var angle = Math.random() * Math.PI * 2;
       var radius = 42 + Math.random() * Math.min(width, height) * .42;
-      particles.push({ x: width / 2 + Math.cos(angle) * radius, y: height / 2 + Math.sin(angle) * radius * .62, vx: (Math.random() - .5) * .25, vy: (Math.random() - .5) * .25, r: 1.1 + Math.random() * 2.3, phase: Math.random() * 6.28, hue: 34 + Math.random() * 170 });
+      var tone = semanticSeries[i % semanticSeries.length];
+      particles.push({ x: width / 2 + Math.cos(angle) * radius, y: height / 2 + Math.sin(angle) * radius * .62, vx: (Math.random() - .5) * .25, vy: (Math.random() - .5) * .25, r: 1.1 + Math.random() * 2.3, phase: Math.random() * 6.28, hue: tone.hue, color: tone.hex });
     }
     document.getElementById("particle-count").textContent = particles.length;
+  }
+
+  function seedIntroScene(width, height) {
+    introDust = [];
+    rockLines = [];
+    var seed = 17;
+    function random() {
+      seed = (seed * 9301 + 49297) % 233280;
+      return seed / 233280;
+    }
+    for (var i = 0; i < Math.max(80, Math.min(170, Math.round(width * height / 6200))); i += 1) {
+      introDust.push({ x: random() * width, y: random() * height, r: .35 + random() * 1.35, a: .12 + random() * .48, drift: .08 + random() * .24, phase: random() * Math.PI * 2, warm: random() > .78 });
+    }
+    for (var j = 0; j < 28; j += 1) {
+      rockLines.push({ x: random(), y: random() * .92, length: .08 + random() * .28, amplitude: 2 + random() * 9, slope: (random() - .5) * .4, phase: random() * Math.PI * 2, side: random() > .5 ? 1 : -1 });
+    }
+  }
+
+  function startCaveMedia() {
+    [fireVideo, fireLogsVideo, silhouetteVideo].forEach(function (video) {
+      video.muted = true;
+      if (reducedMotion) { video.pause(); return; }
+      var attempt = video.play();
+      if (attempt && attempt.catch) attempt.catch(function () { /* autoplay may wait for the next gesture */ });
+    });
+  }
+
+  function setJourneyMessage(phase, title, copy, action, showAction) {
+    document.getElementById("intro-phase").textContent = phase;
+    document.getElementById("intro-title").textContent = title;
+    document.getElementById("intro-copy").textContent = copy;
+    document.getElementById("intro-action").textContent = action || "";
+    document.getElementById("intro-action").hidden = !showAction;
+    document.getElementById("intro-prompt-wrap").hidden = true;
+    document.getElementById("intro-choices").hidden = true;
+  }
+
+  function updateIntroReveal() {
+    var distance = state.gestureDistance;
+    silhouetteVideo.playbackRate = reducedMotion ? .5 : Math.min(1, .52 + distance / 760);
+    state.wallReveal = Math.min(1, Math.max(state.wallReveal, .18 + distance / 820));
+    state.entryTarget = Math.min(1, .04 + distance / 390);
+    if (distance > 20 && state.introStage < 1) {
+      state.introStage = 1;
+      state.entryTarget = Math.max(state.entryTarget, .30);
+      setJourneyMessage("01 / 05 · 听懂好奇", "墙面只记住了一次观看。", "这一笔不是舞者本身，只是一次可记录的结果。继续走，让同一段舞步重复发生。", "让舞步重复", true);
+      setAgent("intent", 0);
+    }
+    if (distance > 155 && state.introStage < 2) {
+      state.introStage = 2;
+      state.entryTarget = Math.max(state.entryTarget, .62);
+      state.figureTarget = .82;
+      setJourneyMessage("02 / 05 · 编一段舞步", "轮廓出现了，答案还没有。", "单次影子会偶然。重复之后，哪些结果总在一起才会慢慢显现。", "读清这组影子", true);
+      setAgent("circuit", 1);
+    }
+    if (distance > 360 && state.introStage < 3) {
+      state.introStage = 3;
+      state.entryTarget = 1;
+      state.figureTarget = 1;
+      state.skyTarget = .78;
+      setJourneyMessage("03 / 05 · 先猜影子", "现在，给影子一个问题。", "不用写 Python，也不用量子术语。只说你想比较什么、想看什么一起出现。", "把这句话交给洞穴", true);
+      document.getElementById("intro-prompt-wrap").hidden = false;
+      setAgent("critic", 2);
+      document.getElementById("stage-live").textContent = "洞口已打开 / 继续探索";
+    }
+    setIntroAccent(state.introStage);
+  }
+
+  function beginGesture(x, y) {
+    startCaveMedia();
+    activateCaveAudio();
+    pointer.active = true;
+    pointer.down = true;
+    pointer.hadGesture = true;
+    state.gestureStarted = true;
+    if (!gesturePath.length) gesturePath = [];
+    lastGesturePoint = null;
+    addGesturePoint(x, y);
+    document.getElementById("stage-live").textContent = "墙面回应 / " + Math.round(state.wallReveal * 100) + "%";
+  }
+
+  function addGesturePoint(x, y) {
+    if (!pointer.down) return;
+    var width = canvas.__width || canvas.clientWidth || 700;
+    var height = canvas.__height || canvas.clientHeight || 560;
+    x = Math.max(0, Math.min(width, x));
+    y = Math.max(0, Math.min(height, y));
+    if (lastGesturePoint) {
+      var dx = x - lastGesturePoint.x, dy = y - lastGesturePoint.y;
+      var distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance < 2) return;
+      state.gestureDistance += Math.min(24, distance);
+    }
+    lastGesturePoint = { x: x, y: y };
+    gesturePath.push({ x: x, y: y, age: 0 });
+    if (gesturePath.length > 460) gesturePath.shift();
+    state.wallReveal = Math.min(1, Math.max(state.wallReveal, .18 + state.gestureDistance / 820));
+    updateIntroReveal();
+    if (gesturePath.length % 9 === 0) {
+      var accent = introAccent(state.introStage);
+      ripples.push({ x: x, y: y, radius: 3, life: .72, hue: accent.hue, color: accent.hex });
+      playEcho(accent.hue);
+    }
+  }
+
+  function endGesture() {
+    if (!pointer.down) return;
+    pointer.down = false;
+    if (gesturePath.length > 2) shadowPaths.push({ points: gesturePath.slice(), life: 1, color: introAccent(state.introStage).hex });
+    if (shadowPaths.length > 4) shadowPaths.shift();
+    gesturePath = [];
+    lastGesturePoint = null;
+  }
+
+  function drawGalaxyBackdrop(target, source, x, y, width, height) {
+    if (!source || !source.complete || !source.naturalWidth) return;
+    var sourceWidth = source.naturalWidth;
+    var sourceHeight = Math.round(source.naturalHeight * .63);
+    var scale = Math.max(width / sourceWidth, height / sourceHeight);
+    var drawWidth = sourceWidth * scale, drawHeight = sourceHeight * scale;
+    target.drawImage(source, 0, 0, sourceWidth, sourceHeight, x + (width - drawWidth) / 2, y + (height - drawHeight) / 2, drawWidth, drawHeight);
+  }
+
+  var pythonWallLines = [
+    "def listen(question):", "intent = understand(question)", "circuit = compose(intent)",
+    "state = prepare(qubits=2)", "state.h(0)", "state.cx(0, 1)",
+    "shadow = state.measure(shots)", "return compare(shadow)", "for attempt in experiments:",
+    "evidence.append(run(attempt))", "if result.is_repeatable():", "observer.read(distribution)"
+  ];
+  var qasmWallLines = [
+    "OPENQASM 2.0;", "include \"qelib1.inc\";", "qreg q[2];", "creg c[2];",
+    "h q[0];", "cx q[0],q[1];", "measure q -> c;", "|00> + |11>",
+    "P(00) ~= P(11)", "shots = 1024", "state -> gate -> measure", "counts {00, 11}"
+  ];
+
+  function drawSyntaxWall(width, height, time) {
+    var depth = Math.max(0, Math.min(1, state.entryDepth));
+    var transition = Math.max(0, Math.min(1, (depth - .12) / .76));
+    var fontSize = width < 760 ? 10 : Math.max(11, Math.min(14, width / 102));
+    var slateMix = Math.pow(transition, .82);
+    var syntaxColor = mixHex("#8faee2", "#9eb9b6", slateMix);
+    var syntaxQuiet = mixHex("#708bc0", "#5f8486", slateMix);
+    ctx.save();
+
+    var wallLight = ctx.createRadialGradient(width * .57, height * .45, 10, width * .57, height * .45, Math.max(width, height) * .7);
+    wallLight.addColorStop(0, "rgba(66,91,158," + (.23 - slateMix * .06).toFixed(3) + ")");
+    wallLight.addColorStop(.55, "rgba(31,42,100," + (.12 - slateMix * .04).toFixed(3) + ")");
+    wallLight.addColorStop(1, "rgba(3,6,23,0)");
+    ctx.fillStyle = wallLight;
+    ctx.fillRect(0, 0, width, height);
+
+    rockLines.forEach(function (line, index) {
+      var y = height * (.05 + line.y * .92);
+      var wave = Math.sin(time * .09 + line.phase) * line.amplitude * .32;
+      ctx.beginPath();
+      ctx.moveTo(-width * .04, y + wave);
+      ctx.bezierCurveTo(width * .28, y + line.slope * 35, width * .64, y - line.slope * 28, width * 1.04, y + wave * .25);
+      ctx.strokeStyle = index % 4 === 0 ? "rgba(242,198,109,.07)" : colorWithAlpha(syntaxColor, .10);
+      ctx.lineWidth = index % 5 === 0 ? 1.1 : .55;
+      ctx.stroke();
+    });
+
+    ctx.font = fontSize + "px " + bodyFont;
+    ctx.textBaseline = "middle";
+    rockLines.forEach(function (line, index) {
+      var pythonText = pythonWallLines[index % pythonWallLines.length];
+      var qasmText = qasmWallLines[(index * 5 + 3) % qasmWallLines.length];
+      var measuredWidth = Math.max(ctx.measureText(pythonText).width, ctx.measureText(qasmText).width);
+      var travel = width + measuredWidth + 260;
+      var direction = line.side > 0 ? 1 : -1;
+      var speed = (4.5 + index % 5 * 1.6) * (1 + depth * .85);
+      var cycle = ((line.x * travel + time * speed * direction) % travel + travel) % travel;
+      var x = cycle - measuredWidth - 110;
+      var y = height * (.07 + line.y * .88);
+      if (pointer.active) {
+        var distanceY = Math.abs(y - pointer.y);
+        var influence = Math.max(0, 1 - distanceY / Math.max(90, height * .22));
+        x += Math.sin(time * 1.2 + line.phase) * influence * 26;
+        y += (pointer.y - y) * influence * .025;
+      }
+      var baseAlpha = (.12 + index % 4 * .028) * (.88 + state.wallReveal * .38);
+      ctx.fillStyle = syntaxColor;
+      ctx.globalAlpha = baseAlpha * (1 - transition * .76);
+      ctx.fillText(pythonText, x, y);
+      ctx.fillText(pythonText, x + travel, y);
+
+      ctx.fillStyle = introAccent(state.introStage).hex;
+      ctx.globalAlpha = baseAlpha * transition * (index % 3 === 0 ? 1.28 : .78);
+      ctx.fillText(qasmText, x + 18 + Math.sin(time * .35 + line.phase) * 10, y);
+      ctx.fillText(qasmText, x + travel + 18, y);
+    });
+
+    var nearRows = width < 760 ? 5 : 6;
+    var nearFontSize = width < 760 ? 12 : Math.max(14, Math.min(18, width / 72));
+    ctx.font = "500 " + nearFontSize + "px " + bodyFont;
+    for (var row = 0; row < nearRows; row += 1) {
+      var nearPython = pythonWallLines[(row * 2 + 1) % pythonWallLines.length];
+      var nearQasm = qasmWallLines[(row * 3 + 2) % qasmWallLines.length];
+      var nearWidth = Math.max(ctx.measureText(nearPython).width, ctx.measureText(nearQasm).width);
+      var nearTravel = width + nearWidth + 380;
+      var nearDirection = row % 2 ? -1 : 1;
+      var nearCycle = ((row * .23 * nearTravel + time * (3.2 + row * .55) * nearDirection) % nearTravel + nearTravel) % nearTravel;
+      var nearX = nearCycle - nearWidth - 170;
+      var nearY = height * (.14 + row * (.70 / Math.max(1, nearRows - 1)));
+      var nearAlpha = (.19 + row % 3 * .03) * (.9 + state.wallReveal * .42);
+      if (pointer.active) {
+        var nearInfluence = Math.max(0, 1 - Math.abs(nearY - pointer.y) / Math.max(120, height * .28));
+        nearX += Math.sin(time * .8 + row) * nearInfluence * 34;
+      }
+      ctx.fillStyle = row % 3 === 1 ? syntaxQuiet : syntaxColor;
+      ctx.globalAlpha = nearAlpha * (1 - transition * .82);
+      ctx.fillText(nearPython, nearX, nearY);
+      ctx.fillText(nearPython, nearX + nearTravel, nearY);
+      ctx.fillStyle = introAccent(state.introStage).hex;
+      ctx.globalAlpha = nearAlpha * transition * (row % 2 ? .92 : .68);
+      ctx.fillText(nearQasm, nearX + 24, nearY);
+      ctx.fillText(nearQasm, nearX + nearTravel + 24, nearY);
+    }
+
+    var labelAlpha = Math.max(.13, .42 - transition * .19);
+    ctx.globalAlpha = labelAlpha;
+    ctx.fillStyle = semanticPalette.sampled.hex;
+    ctx.font = "10px " + bodyFont;
+    ctx.fillText(transition < .46 ? "PYTHON / THE WALL" : "QASM / A DEEPER PROJECTION", width * .035, height * .30);
+    ctx.restore();
+  }
+
+  function drawProjectionSurface(width, height, time) {
+    var base = ctx.createLinearGradient(0, 0, 0, height);
+    var depth = Math.max(0, Math.min(1, state.entryDepth));
+    var slateMix = Math.pow(depth, .82);
+    base.addColorStop(0, mixHex("#030619", "#071019", slateMix * .26));
+    base.addColorStop(.48, mixHex("#081631", "#101d29", slateMix * .62));
+    base.addColorStop(1, mixHex("#14242d", "#263238", slateMix * .82));
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.save();
+    var skyZoom = 1 + state.entryDepth * .17;
+    ctx.translate(width * .56, height * .48);
+    ctx.scale(skyZoom, skyZoom);
+    ctx.translate(-width * .56, -height * .48 + state.entryDepth * height * .025);
+    ctx.globalAlpha = (.10 + state.skyReveal * .90) * (1 - slateMix * .56);
+    ctx.filter = "saturate(.82) contrast(1.06) brightness(.68) hue-rotate(-8deg)";
+    drawGalaxyBackdrop(ctx, galaxyImage, 0, 0, width, height);
+    ctx.filter = "none";
+    var nightTint = ctx.createLinearGradient(0, 0, 0, height);
+    nightTint.addColorStop(0, "rgba(8,43,116," + (.25 - slateMix * .08).toFixed(3) + ")");
+    nightTint.addColorStop(.58, "rgba(24,68,112," + (.18 - slateMix * .08).toFixed(3) + ")");
+    nightTint.addColorStop(1, "rgba(34,79,97," + (.24 - slateMix * .16).toFixed(3) + ")");
+    ctx.fillStyle = nightTint;
+    ctx.fillRect(0, 0, width, height);
+    var slateWash = ctx.createLinearGradient(0, 0, 0, height);
+    slateWash.addColorStop(0, "rgba(28,47,56," + (slateMix * .14).toFixed(3) + ")");
+    slateWash.addColorStop(.62, "rgba(57,76,74," + (slateMix * .34).toFixed(3) + ")");
+    slateWash.addColorStop(1, "rgba(71,82,73," + (slateMix * .56).toFixed(3) + ")");
+    ctx.fillStyle = slateWash;
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = "rgba(3,6,24," + (.27 - state.skyReveal * .13).toFixed(3) + ")";
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
+    drawSyntaxWall(width, height, time);
+
+    ctx.save();
+    var copyShade = ctx.createRadialGradient(width * .04, height * .68, 0, width * .04, height * .68, width * .72);
+    copyShade.addColorStop(0, "rgba(2,5,22,.68)");
+    copyShade.addColorStop(.68, "rgba(2,5,22,.18)");
+    copyShade.addColorStop(1, "rgba(2,5,22,0)");
+    ctx.fillStyle = copyShade;
+    ctx.fillRect(0, 0, width * .78, height);
+    ctx.restore();
+
+  }
+
+  function sampleFireEnergy() {
+    var video = fireVideo.readyState >= 2 ? fireVideo : fireLogsVideo;
+    if (!video || video.readyState < 2 || !video.videoWidth) return;
+    if (!mediaCanvas.width) { mediaCanvas.width = 64; mediaCanvas.height = 36; }
+    mediaCtx.drawImage(video, 0, 0, mediaCanvas.width, mediaCanvas.height);
+    var pixels;
+    try { pixels = mediaCtx.getImageData(0, 0, mediaCanvas.width, mediaCanvas.height).data; } catch (error) { return; }
+    var sum = 0;
+    for (var i = 0; i < pixels.length; i += 16) sum += (pixels[i] * .3 + pixels[i + 1] * .59 + pixels[i + 2] * .11) / 255;
+    var average = sum / Math.max(1, Math.floor(pixels.length / 16));
+    state.fireEnergy += (Math.min(1, average * 1.8) - state.fireEnergy) * .12;
+  }
+
+  function drawOffscreenFirelight(width, height, time) {
+    if (mediaFrame % 4 === 0) sampleFireEnergy();
+    var flicker = .72 + state.fireEnergy * .82 + Math.sin(time * 3.1) * .08 + Math.sin(time * 7.7) * .035;
+    var sourceX = width * .035, sourceY = height * .76;
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    var field = ctx.createRadialGradient(sourceX, sourceY, 4, sourceX, sourceY, Math.max(width, height) * .86);
+    field.addColorStop(0, "rgba(255,187,105," + (.09 * flicker).toFixed(3) + ")");
+    field.addColorStop(.2, "rgba(224,121,91," + (.055 * flicker).toFixed(3) + ")");
+    field.addColorStop(.56, "rgba(70,105,112," + (.025 * flicker).toFixed(3) + ")");
+    field.addColorStop(1, "rgba(34,55,67,0)");
+    ctx.fillStyle = field;
+    ctx.fillRect(0, 0, width, height);
+    for (var i = 0; i < 3; i += 1) {
+      var x = width * (.12 + i * .22) + Math.sin(time * (1.1 + i * .23) + i) * width * .035;
+      var y = height * (.48 + i * .13);
+      var glow = ctx.createRadialGradient(x, y, 2, x, y, width * (.20 + i * .07));
+      glow.addColorStop(0, "rgba(241,169,104," + (.032 * flicker).toFixed(3) + ")");
+      glow.addColorStop(1, "rgba(241,169,88,0)");
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, width, height);
+    }
+    ctx.restore();
+  }
+
+  function updateSilhouetteFrame() {
+    if (!silhouetteVideo || silhouetteVideo.readyState < 2 || !silhouetteVideo.videoWidth) return false;
+    var frameHeight = 320;
+    var frameWidth = Math.round(frameHeight * silhouetteVideo.videoWidth / silhouetteVideo.videoHeight);
+    if (silhouetteCanvas.width !== frameWidth || silhouetteCanvas.height !== frameHeight) {
+      silhouetteCanvas.width = frameWidth;
+      silhouetteCanvas.height = frameHeight;
+    }
+    silhouetteCtx.globalCompositeOperation = "source-over";
+    silhouetteCtx.clearRect(0, 0, frameWidth, frameHeight);
+    silhouetteCtx.drawImage(silhouetteVideo, 0, 0, frameWidth, frameHeight);
+    var frame;
+    try { frame = silhouetteCtx.getImageData(0, 0, frameWidth, frameHeight); } catch (error) { return false; }
+    var pixels = frame.data;
+    for (var y = 0; y < frameHeight; y += 1) {
+      for (var x = 0; x < frameWidth; x += 1) {
+        var index = (y * frameWidth + x) * 4;
+        var luminance = pixels[index] * .30 + pixels[index + 1] * .59 + pixels[index + 2] * .11;
+        var dx = (x / frameWidth - .50) / .50;
+        var dy = (y / frameHeight - .45) / .56;
+        var feather = Math.max(0, Math.min(1, (1 - Math.sqrt(dx * dx + dy * dy)) * 4));
+        var shadow = Math.max(0, Math.min(1, (188 - luminance) / 150));
+        pixels[index] = 6;
+        pixels[index + 1] = 18;
+        pixels[index + 2] = 26;
+        pixels[index + 3] = Math.round(205 * Math.pow(shadow, 1.32) * feather);
+      }
+    }
+    silhouetteCtx.putImageData(frame, 0, 0);
+    return true;
+  }
+
+  function drawProjectedSilhouette(width, height, time) {
+    if (state.figureReveal <= .01) return;
+    if (mediaFrame % 3 === 0 || !silhouetteCanvas.width) updateSilhouetteFrame();
+    if (!silhouetteCanvas.width) return;
+    var reveal = state.figureReveal;
+    var projectionHeight = Math.min(height * (width < 760 ? .66 : .82), width * (width < 760 ? 1.12 : .63));
+    var projectionWidth = projectionHeight * silhouetteCanvas.width / silhouetteCanvas.height;
+    var projectionX = width < 760 ? width * .53 : width * .66;
+    var projectionY = height * (.08 - state.entryDepth * .018);
+    var drift = Math.sin(time * .42) * Math.min(width, height) * .007;
+
+    ctx.save();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.translate(projectionX + projectionWidth + drift, projectionY);
+    ctx.transform(-1, -.018, .025, .99, 0, 0);
+    ctx.globalAlpha = reveal * .68;
+    ctx.filter = "blur(.7px)";
+    ctx.drawImage(silhouetteCanvas, 0, 0, projectionWidth, projectionHeight);
+    ctx.globalAlpha = reveal * .12;
+    ctx.filter = "blur(5px)";
+    ctx.drawImage(silhouetteCanvas, -projectionWidth * .012, projectionHeight * .008, projectionWidth * 1.024, projectionHeight * 1.024);
+    ctx.restore();
+  }
+
+  function drawSmoothPath(points, alpha, color, lineWidth, glow) {
+    if (!points || points.length < 2) return;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lineWidth;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.shadowBlur = glow;
+    ctx.shadowColor = color;
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (var i = 1; i < points.length - 1; i += 1) {
+      var midpointX = (points[i].x + points[i + 1].x) / 2;
+      var midpointY = (points[i].y + points[i + 1].y) / 2;
+      ctx.quadraticCurveTo(points[i].x, points[i].y, midpointX, midpointY);
+    }
+    ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawGestureTrails(width, height, time) {
+    var accent = introAccent(state.introStage);
+    shadowPaths.forEach(function (path) {
+      path.life -= reducedMotion ? .001 : .0025;
+      drawSmoothPath(path.points, Math.max(0, path.life) * (.22 + state.skyReveal * .24), path.color || semanticPalette.ideal.hex, 1.2, 8);
+    });
+    shadowPaths = shadowPaths.filter(function (path) { return path.life > .02; });
+    drawSmoothPath(gesturePath, .9, accent.hex, 1.4 + state.wallReveal * 1.8, 12 + state.wallReveal * 12);
+    if (gesturePath.length > 4) {
+      var last = gesturePath[gesturePath.length - 1];
+      var pulse = 4 + Math.sin(time * 5) * 1.3;
+      ctx.save(); ctx.globalAlpha = .8; ctx.fillStyle = accent.hex; ctx.shadowBlur = 18; ctx.shadowColor = accent.hex; ctx.beginPath(); ctx.arc(last.x, last.y, pulse, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    }
+    if (state.introStage >= 2 && gesturePath.length > 4) {
+      ctx.save();
+      ctx.globalAlpha = .14 + state.skyReveal * .16;
+      ctx.strokeStyle = semanticPalette.noisy.hex;
+      ctx.lineWidth = .8;
+      for (var i = 0; i < 4; i += 1) {
+        ctx.beginPath();
+        ctx.arc(width * (.48 + i * .035), height * (.46 + i * .015), width * (.12 + i * .045), Math.PI * (1.04 + i * .02), Math.PI * (1.92 - i * .02));
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+
+  function drawIntroDust(width, height, time) {
+    introDust.forEach(function (dust, index) {
+      dust.y -= dust.drift * (reducedMotion ? .08 : .35);
+      if (dust.y < -4) dust.y = height + 4;
+      var pulse = dust.a * (.5 + .5 * Math.sin(time * (.5 + dust.drift) + dust.phase));
+      var dustZoom = 1 + state.entryDepth * .42;
+      var dustX = width * .56 + (dust.x - width * .56) * dustZoom;
+      var dustY = height * .48 + (dust.y - height * .48) * dustZoom;
+      ctx.save();
+      ctx.globalAlpha = pulse * (.55 + state.wallReveal * .35);
+      ctx.fillStyle = dust.warm ? semanticPalette.sampled.hex : semanticPalette.ideal.hex;
+      ctx.beginPath(); ctx.arc(dustX, dustY, dust.r * (1 + state.entryDepth * .65), 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    });
   }
 
   function caveWall(width, height) {
@@ -340,20 +864,28 @@
     ctx.lineTo(wall.left, wall.bottom);
     ctx.closePath();
     var wallGradient = ctx.createLinearGradient(0, wall.top, 0, wall.bottom);
-    wallGradient.addColorStop(0, "rgba(29,50,59,.84)");
-    wallGradient.addColorStop(1, "rgba(9,23,31,.96)");
+    wallGradient.addColorStop(0, "rgba(29,50,59,.88)");
+    wallGradient.addColorStop(.58, "rgba(18,38,44,.93)");
+    wallGradient.addColorStop(1, "rgba(9,23,31,.97)");
     ctx.fillStyle = wallGradient;
     ctx.fill();
     ctx.clip();
-    ctx.globalAlpha = .15 + state.wallReveal * .28;
+    ctx.globalAlpha = .24 + state.wallReveal * .30;
     ctx.fillStyle = "#9eb9b6";
-    ctx.font = "11px " + bodyFont;
-    var code = ["def quantum_question():", "  qreg q[2]", "  h q[0]", "  cx q[0], q[1]", "  measure q -> c", "return shadow(c)"];
-    for (var line = 0; line < 8; line += 1) {
-      var y = wall.top + 28 + line * 26;
-      var offset = Math.sin(time * .12 + line) * 7;
-      ctx.fillText(code[line % code.length], wall.left + 28 + offset, y);
-      ctx.fillStyle = line % 2 ? "#5f8486" : "#9eb9b6";
+    ctx.font = (width < 760 ? "10px " : "12px ") + bodyFont;
+    var wallWidth = wall.right - wall.left;
+    var code = ["def quantum_question():", "intent = understand(question)", "state = prepare(qubits=2)", "state.h(0)", "state.cx(0, 1)", "shadow = state.measure(shots)", "return compare(shadow)"];
+    for (var line = 0; line < 10; line += 1) {
+      var text = code[line % code.length];
+      var y = wall.top + 27 + line * Math.max(22, (wall.bottom - wall.top - 50) / 9);
+      var textWidth = ctx.measureText(text).width;
+      var travel = wallWidth + textWidth + 120;
+      var direction = line % 2 ? -1 : 1;
+      var offset = ((line * .21 * travel + time * (2.2 + line * .25) * direction) % travel + travel) % travel;
+      var x = wall.left + offset - textWidth - 54;
+      ctx.fillStyle = line % 3 === 1 ? "#5f8486" : "#9eb9b6";
+      ctx.fillText(text, x, y);
+      ctx.fillText(text, x + travel, y);
     }
     ctx.globalAlpha = .5 + state.wallReveal * .35;
     ctx.fillStyle = "#f2c66d";
@@ -374,33 +906,15 @@
   }
 
   function drawFire(width, height, time) {
-    var fireX = width * .16, fireY = height * .83;
+    var fireX = -width * .04, fireY = height * .84;
     var light = ctx.createRadialGradient(fireX, fireY, 2, fireX, fireY, Math.min(width, height) * .58);
-    light.addColorStop(0, "rgba(255,190,91,.28)");
-    light.addColorStop(.34, "rgba(238,142,108,.10)");
-    light.addColorStop(1, "rgba(238,142,108,0)");
+    var flicker = .82 + state.fireEnergy * .5 + Math.sin(time * 2.2) * .08;
+    light.addColorStop(0, "rgba(255,190,105," + (.13 * flicker).toFixed(3) + ")");
+    light.addColorStop(.32, "rgba(224,146,118," + (.05 * flicker).toFixed(3) + ")");
+    light.addColorStop(.68, "rgba(73,91,100," + (.018 * flicker).toFixed(3) + ")");
+    light.addColorStop(1, "rgba(44,62,70,0)");
     ctx.fillStyle = light;
     ctx.fillRect(0, 0, width, height);
-    ctx.save();
-    ctx.translate(fireX, fireY);
-    ctx.globalAlpha = .62 + Math.sin(time * 2.2) * .08;
-    ctx.fillStyle = "#f2c66d";
-    ctx.beginPath();
-    ctx.moveTo(-18, 10);
-    ctx.bezierCurveTo(-22, -8, -7, -13, -8, -31);
-    ctx.bezierCurveTo(4, -20, 8, -12, 5, -2);
-    ctx.bezierCurveTo(18, -18, 24, -8, 17, 11);
-    ctx.closePath();
-    ctx.fill();
-    ctx.globalAlpha = .78;
-    ctx.fillStyle = "#ee8eaa";
-    ctx.beginPath();
-    ctx.moveTo(-8, 10);
-    ctx.bezierCurveTo(-11, -3, -1, -7, 1, -20);
-    ctx.bezierCurveTo(9, -9, 10, -1, 7, 10);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
   }
 
   function projectShadow(p, width, height, wall) {
@@ -438,13 +952,14 @@
       ripple.radius += reducedMotion ? .7 : 1.7;
       ripple.life -= reducedMotion ? .035 : .018;
       if (ripple.life <= 0) { ripples.splice(i, 1); continue; }
+      var rippleColor = ripple.color || "hsl(" + ripple.hue + " 82% 72%)";
       ctx.save();
       ctx.globalAlpha = ripple.life * .75;
-      ctx.strokeStyle = "hsl(" + ripple.hue + " 82% 72%)";
+      ctx.strokeStyle = rippleColor;
       ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(ripple.x, ripple.y, ripple.radius, 0, Math.PI * 2); ctx.stroke();
       ctx.globalAlpha = ripple.life * .16;
-      ctx.fillStyle = "hsl(" + ripple.hue + " 82% 72%)";
+      ctx.fillStyle = rippleColor;
       ctx.beginPath(); ctx.arc(ripple.x, ripple.y, ripple.radius * .35, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     }
@@ -466,6 +981,47 @@
     oscillator.start(); oscillator.stop(audioContext.currentTime + .28);
   }
 
+  function activateCaveAudio() {
+    var AudioCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtor) return;
+    state.soundEnabled = true;
+    audioContext = audioContext || new AudioCtor();
+    if (audioContext.state === "suspended") audioContext.resume();
+    if (!ambientGain) {
+      ambientGain = audioContext.createGain();
+      ambientGain.gain.value = .0001;
+      ambientGain.connect(audioContext.destination);
+      [43.65, 65.41].forEach(function (frequency, index) {
+        var oscillator = audioContext.createOscillator();
+        var gain = audioContext.createGain();
+        oscillator.type = index ? "triangle" : "sine";
+        oscillator.frequency.value = frequency;
+        gain.gain.value = index ? .28 : .46;
+        oscillator.connect(gain);
+        gain.connect(ambientGain);
+        oscillator.start();
+        ambientOscillators.push(oscillator);
+      });
+    }
+    ambientGain.gain.cancelScheduledValues(audioContext.currentTime);
+    ambientGain.gain.setTargetAtTime(.009, audioContext.currentTime, .18);
+    var button = document.getElementById("sensory-toggle");
+    button.setAttribute("aria-pressed", "true");
+    button.textContent = "静音";
+    playEcho(introAccent(state.introStage).hue);
+  }
+
+  function silenceCaveAudio() {
+    state.soundEnabled = false;
+    if (audioContext && ambientGain) {
+      ambientGain.gain.cancelScheduledValues(audioContext.currentTime);
+      ambientGain.gain.setTargetAtTime(.0001, audioContext.currentTime, .08);
+    }
+    var button = document.getElementById("sensory-toggle");
+    button.setAttribute("aria-pressed", "false");
+    button.textContent = "声音";
+  }
+
   function touchCave(x, y) {
     var closest = null, distance = 9999;
     particles.forEach(function (p) {
@@ -476,34 +1032,64 @@
     var touchedWall = y >= wall.top - 18 && y <= wall.bottom + 12 && x >= wall.left && x <= wall.right;
     if (!closest || distance >= 15000) {
       if (!touchedWall) return;
-      closest = { hue: 42 + state.introStep * 30 };
+      closest = semanticSeries[Math.min(semanticSeries.length - 1, state.introStep)];
     }
     state.wallReveal = Math.min(1, state.wallReveal + (touchedWall ? .08 : .12));
-    ripples.push({ x: x, y: y, radius: 4, life: 1, hue: closest.hue });
+    ripples.push({ x: x, y: y, radius: 4, life: 1, hue: closest.hue, color: closest.color || closest.hex });
     if (navigator.vibrate) navigator.vibrate(8);
     playEcho(closest.hue);
-    var message = touchedWall ? "墙面接住了这一下：Python 只是入口，影子才是证据。" : "你触到一位舞者：光变成颜色，影子变成一声回响。";
-    if (state.introStep === 0) message = "火光被你触醒了。先看见一位舞者，再走近它的影子。";
-    if (state.introStep >= 3) message = "同一位舞者又走了一遍。重复之后，影子的主峰会更稳定。";
+    var message = touchedWall ? "墙面接住了这一下：Python 只是入口，影子才是证据。" : "你触到一段舞步：光变成颜色，影子变成一声回响。";
+    if (state.introStep === 0) message = "火光被你触醒了。先看见一道轮廓，再走近它的影子。";
+    if (state.introStep >= 3) message = "同一段舞步又走了一遍。重复之后，影子的主峰会更稳定。";
     document.getElementById("stage-note").textContent = message;
     document.getElementById("stage-live").textContent = "联觉回声 / " + Math.round(state.wallReveal * 100) + "%";
-    if (state.introStep === 0) {
-      state.introStep = 1;
-      window.setTimeout(function () {
-        if (root.classList.contains("intro-mode")) {
-          setIntroStep(1);
-          document.getElementById("intro-prompt").focus();
-        }
-      }, reducedMotion ? 0 : 420);
+    if (state.introStep === 0) updateIntroReveal();
+  }
+
+  function drawIntro() {
+    var width = canvas.__width || canvas.clientWidth || 700;
+    var height = canvas.__height || canvas.clientHeight || 560;
+    var time = Date.now() * .001;
+    mediaFrame += 1;
+    state.entryDepth += (state.entryTarget - state.entryDepth) * (reducedMotion ? .18 : .045);
+    state.skyReveal += (state.skyTarget - state.skyReveal) * (reducedMotion ? .15 : .035);
+    state.figureReveal += (state.figureTarget - state.figureReveal) * (reducedMotion ? .15 : .045);
+    ctx.clearRect(0, 0, width, height);
+    drawProjectionSurface(width, height, time);
+    drawOffscreenFirelight(width, height, time);
+    drawIntroDust(width, height, time);
+    drawProjectedSilhouette(width, height, time);
+    drawGestureTrails(width, height, time);
+    drawRipples();
+    if (pointer.active && !pointer.down) {
+      ctx.save();
+      ctx.globalAlpha = .16;
+      ctx.strokeStyle = introAccent(state.introStage).hex;
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(pointer.x, pointer.y, 16 + Math.sin(time * 3) * 2, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
     }
+    requestAnimationFrame(draw);
   }
 
   function draw() {
+    if (root.classList.contains("intro-mode")) {
+      drawIntro();
+      return;
+    }
+    drawLab();
+  }
+
+  function drawLab() {
     var width = canvas.__width || canvas.clientWidth || 700;
     var height = canvas.__height || canvas.clientHeight || 560;
     var time = Date.now() * .001;
     ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = "#08131e";
+    var labBase = ctx.createLinearGradient(0, 0, 0, height);
+    labBase.addColorStop(0, "#08131e");
+    labBase.addColorStop(.62, "#0b1a25");
+    labBase.addColorStop(1, "#17262a");
+    ctx.fillStyle = labBase;
     ctx.fillRect(0, 0, width, height);
     var cx = width / 2, cy = height * .52;
     var caveWidth = Math.min(width * .82, 650), caveHeight = Math.min(height * .74, 430);
@@ -552,7 +1138,7 @@
     for (var j = 0; j < particles.length; j += 1) {
       var dot = particles[j];
       var pulse = 1 + Math.sin(dot.phase) * .18;
-      ctx.fillStyle = "hsl(" + dot.hue.toFixed(0) + " 78% " + (j % 5 === 0 ? "72%" : "68%") + ")";
+      ctx.fillStyle = dot.color || semanticPalette.ideal.hex;
       ctx.globalAlpha = .46 + state.observation / 220;
       ctx.shadowBlur = 8 + state.wallReveal * 7;
       ctx.shadowColor = ctx.fillStyle;
@@ -670,6 +1256,7 @@
       html += '</div>';
     });
     document.getElementById("evidence-bars").innerHTML = html || '<div class="empty-state">没有可显示的测量结果。</div>';
+    document.getElementById("evidence-note").textContent = data.real ? "真机附件已通过本地 Schema 与主峰检查；job_id 的平台可溯源性仍由评审人工核验。" : "真实结果不是动画的装饰，它必须带有完整 Schema、赛期时间和可在平台追溯的 job_id。";
     var idealValues = idealKeys.map(function (key) { return Number(data.ideal[key] || 0); });
     var minIdeal = idealValues.length ? Math.min.apply(null, idealValues) : 0, maxIdeal = idealValues.length ? Math.max.apply(null, idealValues) : 0;
     var correlated = data.num_qubits >= 2 && idealKeys.length === 2 && idealKeys.every(function (key) { return key === "0".repeat(key.length) || key === "1".repeat(key.length); });
@@ -693,16 +1280,33 @@
   document.querySelectorAll(".preset").forEach(function (button) { button.addEventListener("click", function () { if (state.running) return; document.querySelectorAll(".preset").forEach(function (item) { item.setAttribute("aria-pressed", "false"); }); button.setAttribute("aria-pressed", "true"); runExperiment(button.getAttribute("data-prompt"), button.getAttribute("data-prediction"), "local"); }); });
   document.getElementById("run-button").addEventListener("click", function () { runExperiment(null, null, "auto"); });
   document.getElementById("sensory-toggle").addEventListener("click", function () {
-    state.soundEnabled = !state.soundEnabled;
-    this.setAttribute("aria-pressed", state.soundEnabled ? "true" : "false");
-    this.textContent = state.soundEnabled ? "关闭回声" : "听见影子";
-    document.getElementById("stage-note").textContent = state.soundEnabled ? "回声已打开：每一次点击会对应一个不同音高。" : "回声已关闭：视觉涟漪仍会保留。";
+    if (state.soundEnabled) silenceCaveAudio(); else activateCaveAudio();
+    document.getElementById("stage-note").textContent = state.soundEnabled ? "声音会跟随触碰的位置和阶段变化。" : "声音已静音，视觉轨迹仍会保留。";
   });
   document.getElementById("observation-range").addEventListener("input", function (event) { updateObservation(event.target.value); });
   document.getElementById("shots-range").addEventListener("input", function (event) { updateShots(event.target.value); });
-  canvas.addEventListener("pointermove", function (event) { var rect = canvas.getBoundingClientRect(); pointer.x = event.clientX - rect.left; pointer.y = event.clientY - rect.top; pointer.active = true; });
-  canvas.addEventListener("pointerleave", function () { pointer.active = false; });
-  canvas.addEventListener("click", function (event) { var rect = canvas.getBoundingClientRect(); touchCave(event.clientX - rect.left, event.clientY - rect.top); });
+  canvas.addEventListener("pointerdown", function (event) {
+    var rect = canvas.getBoundingClientRect(), x = event.clientX - rect.left, y = event.clientY - rect.top;
+    pointer.x = x; pointer.y = y; pointer.active = true;
+    if (root.classList.contains("intro-mode")) {
+      event.preventDefault();
+      try { canvas.setPointerCapture(event.pointerId); } catch (error) { /* synthetic and older pointer implementations */ }
+      beginGesture(x, y);
+    }
+  });
+  canvas.addEventListener("pointermove", function (event) {
+    var rect = canvas.getBoundingClientRect();
+    pointer.x = event.clientX - rect.left; pointer.y = event.clientY - rect.top; pointer.active = true;
+    if (root.classList.contains("intro-mode") && pointer.down) addGesturePoint(pointer.x, pointer.y);
+  });
+  canvas.addEventListener("pointerup", function () { if (root.classList.contains("intro-mode")) endGesture(); });
+  canvas.addEventListener("pointercancel", endGesture);
+  canvas.addEventListener("pointerleave", function () { if (!pointer.down) pointer.active = false; });
+  canvas.addEventListener("click", function (event) {
+    if (root.classList.contains("intro-mode")) return;
+    if (!state.soundEnabled) activateCaveAudio();
+    var rect = canvas.getBoundingClientRect(); touchCave(event.clientX - rect.left, event.clientY - rect.top);
+  });
   window.addEventListener("resize", function () { resizeCanvas(); seedParticles(); });
   resizeCanvas(); seedParticles(); updateObservation(35); updateShots(1024); enterIntro(); draw();
 }());

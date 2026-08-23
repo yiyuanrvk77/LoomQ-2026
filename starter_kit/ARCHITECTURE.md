@@ -8,15 +8,17 @@
 ## 系统分层
 
 1. **解析层（`qasm_parser.py`）**：把标准 OpenQASM 2.0 解析成统一中间表示（IR）。
-2. **执行层（`simulator.py` / `backends.py`）**：同一套 IR 驱动三个后端；有真实 SDK 时走
-   SDK，否则回退到内置无噪声模拟器（零依赖）。
+2. **执行层（`simulator.py` / `backends.py`）**：同一套 IR 驱动三个本地模拟后端；有厂商
+   本地 SDK 时走 LocalSimulator / Taurus / CPUQVM，否则回退到内置无噪声模拟器（零依赖）。
+   内置状态向量以 20 比特和 1,000,000 shots 为资源保护上限。`run()` 不提交真机，返回值以
+   `meta.is_hardware=false` 明确标识边界。
 3. **转译层（`transpiler.py`）**：IR 分别输出 SpinQ（OpenQASM 2.0）、Braket（OpenQASM 3）、
    OriginQ（OriginIR），并统一位序为 little-endian。
-4. **智能体层（`agent.py`）**：`agent_chat` 读 `LOOMQ_LLM_*` **真实调用模型**（无 mock 兜底），
-   用「生成 → L1 自验 → 重试」闭环保证输出可运行；后端选型先从官方 `backend_capabilities.json`
-   算出满足约束的候选集，再校验模型推荐是否落在候选集内——候选集为空时明确返回「无解」，
-   绝不接受表内但不满足约束的 ID，也非关键词硬编码答案。教育概念快捷回答在本地无 Key 时保持可用；
-   有 `LOOMQ_LLM_*` 配置时仍会触发一次真实模型调用，避免与正式 L2 运行时契约脱节。
+4. **智能体层（`agent.py`）**：`agent_chat` 每次都读取 `LOOMQ_LLM_*` 并真实调用模型（无 mock
+   兜底）。模型负责按语义返回结构化的 `circuit` / `backend` 任务；电路进入「生成 → 12 门解析
+   → 本地运行自验 → 最多两次纠正」闭环，任何未验证 QASM 都不会返回。后端约束由模型抽取，
+   确定性工具再直接筛选 `backend_capabilities.json`，不存在对用户原句的正则路由。独立的
+   `concepts.py` 只服务网页 `/concept` 科普接口，不会进入或绕过正式 L2 调用。
 5. **混合编译层（`hybrid.py`）**：手写词法分析器 + 递归下降解析器，把 Hybrid-QASM 经典块解析为
    AST 再生成 RISC-V 汇编；对任意符合文法的输入通用处理，非针对样例打表。
 
@@ -25,6 +27,14 @@
 - 所有后端共享同一个 IR 和同一套 12 门白名单映射；
 - `run()` 对三后端走同一接口，仅执行层分派；
 - 回读自测：`transpile → parse_target → 精确分布对比`，保证 emitter 语义等价。
+
+## 本地执行与真机证据边界
+
+- `adapter.run()` 只负责题目要求的本地转译与模拟，生成的 `local-*` 任务号不能申报真机分；
+- 真机结果放在 `evidence/files/`，必须保留平台原始 `backend / job_id / shots / counts /
+  bit_order / timestamp`，平台控制台溯源由评审人工复核；
+- 若另写真机连接器，凭证只从环境变量读取（模板见 `.env.example`），不得写进网页、源码、
+  JSON 证据或 Git 历史。
 
 ## 必答题：我的工具让谁第一次能用上量子计算？
 

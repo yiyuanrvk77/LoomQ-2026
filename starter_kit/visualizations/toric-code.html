@@ -1,22 +1,31 @@
-<div id="toric-code">
-  <h3>量子纠错 · Toric Code（二维网格）</h3>
-
-  <div class="viz-controls">
-    <button type="button" class="btn" id="bRandom">随机放一个错误</button>
-    <button type="button" class="btn btn-ghost" id="bReset">重置</button>
-  </div>
-
-  <svg id="grid" viewBox="0 0 364 364" role="img" aria-label="二维网格纠错码：比特在网格线上，出错时相邻格子亮起"></svg>
-
-  <div id="status" class="status" role="status" aria-live="polite">点击网格线（比特）放一个 X 错误；相邻的格子会亮起，表示测到了奇偶异常。</div>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>二维表面码 / Toric 思想 · LoomQ</title>
+<link rel="stylesheet" href="qec-games.css">
+</head>
+<body>
+<div id="toric-code" class="game-page" data-game="toric-code">
+  <header class="game-topbar"><a class="game-brand" href="../index.html">LOOMQ / ERROR FIELD</a><a class="game-back" href="lab.html">← 返回四个实验</a></header>
+  <main class="game-main">
+    <section class="game-hero"><div><p class="game-kicker">04 / 04 · 高阶路径</p><h1>二维表面码</h1><p>Toric Code 原本使用周期边界；这里把它平面化成带边界的教学网格，先看错误串如何留下奇偶异常端点。</p></div><div class="game-progress"><strong>SURFACE CODE</strong>Toric 思想 · anyon 端点</div></section>
+    <div class="game-layout">
+      <section class="game-stage">
+        <div class="game-stage-head"><span>TOPOLOGICAL FIELD / EDGE ERRORS</span><strong>点击网格线放置错误</strong></div>
+        <div class="game-canvas"><svg id="grid" viewBox="0 0 364 364" role="img" aria-label="二维网格纠错码：比特在网格线上，出错时相邻格子亮起"></svg></div>
+        <div class="game-stage-foot"><span>边 = 量子比特</span><span>亮格 = 奇偶异常</span></div>
+      </section>
+      <aside class="game-panel">
+        <div class="game-panel-head"><span class="game-panel-label">CONTROL / 04</span><h2>连出一条错误串</h2><p class="game-panel-copy">单击边放置或移除错误。试着让错误串移动，观察异常格子如何只出现在端点。</p></div>
+        <div class="game-steps"><div class="game-step"><b>01</b><span><strong>选一条边</strong><small>边上的线就是一个比特</small></span></div><div class="game-step"><b>02</b><span><strong>连出路径</strong><small>错误串可以弯曲、延长</small></span></div><div class="game-step"><b>03</b><span><strong>读端点</strong><small>亮格只关心奇偶变化</small></span></div></div>
+        <div class="viz-controls"><button type="button" class="btn btn-primary" id="bRandom">随机放一个错误</button><button type="button" class="btn btn-ghost" id="bReset">重置</button></div>
+        <div id="status" class="status" role="status" aria-live="polite">点击网格线（比特）放一个 X 错误；相邻的格子会亮起，表示测到了奇偶异常。</div><p class="game-hint">青色是可交互的边；粉色是错误串；被点亮的格子是 anyon 的位置影子。</p>
+      </aside>
+    </div>
+  </main>
 </div>
-
-<style>
-#toric-code .plaq { stroke: var(--border); stroke-width: 1; }
-#toric-code .edge { stroke: var(--border); stroke-width: 2.5; }
-#toric-code .errmark { fill: var(--destructive); font-size: 18px; opacity: 0; }
-#toric-code .status { color: var(--foreground); margin-top: 10px; }
-</style>
 
 <script>
 (function () {
@@ -48,6 +57,10 @@
   function addEdge(kind, a, b, x1, y1, x2, y2, adj) {
     var key = kind + a + "_" + b;
     var g = document.createElementNS(NS, "g");
+    g.setAttribute("class", "edge-node");
+    g.setAttribute("role", "button");
+    g.setAttribute("tabindex", "0");
+    g.setAttribute("aria-label", "切换网格边 " + key + " 的错误状态");
     var hit = document.createElementNS(NS, "line");
     hit.setAttribute("x1", x1); hit.setAttribute("y1", y1);
     hit.setAttribute("x2", x2); hit.setAttribute("y2", y2);
@@ -63,8 +76,11 @@
     mk.setAttribute("class", "errmark"); mk.textContent = "✕";
     g.appendChild(hit); g.appendChild(ln); g.appendChild(mk);
     g.addEventListener("click", function () { toggle(key); });
+    g.addEventListener("keydown", function (event) {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggle(key); }
+    });
     svg.appendChild(g);
-    edgeObjs[key] = { adj: adj, mark: mk };
+    edgeObjs[key] = { adj: adj, line: ln, mark: mk };
   }
 
   for (var r = 0; r <= L; r++) {
@@ -97,10 +113,10 @@
     var lit = [];
     for (var p in par) { if (par[p]) { lit.push(p); } }
     for (var p2 in plaqObjs) {
-      plaqObjs[p2].setAttribute("fill", par[p2] ? "var(--destructive)" : "transparent");
-      plaqObjs[p2].setAttribute("fill-opacity", par[p2] ? "0.22" : "0");
+      plaqObjs[p2].classList.toggle("hit", Boolean(par[p2]));
     }
     for (var k2 in edgeObjs) {
+      edgeObjs[k2].line.classList.toggle("err", Boolean(errors[k2]));
       edgeObjs[k2].mark.setAttribute("opacity", errors[k2] ? "1" : "0");
     }
     if (lit.length === 0) {
@@ -130,3 +146,5 @@
   render();
 })();
 </script>
+</body>
+</html>

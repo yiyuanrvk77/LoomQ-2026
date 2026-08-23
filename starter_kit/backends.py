@@ -1,4 +1,8 @@
-"""真实 SDK 执行层（run 用），缺 SDK 时由适配器回退到内置模拟器。"""
+"""Local SDK execution layer used by ``run()``.
+
+These runners use local simulators only. Traceable cloud/QPU submissions live
+in ``evidence/`` and intentionally do not share this execution path.
+"""
 
 try:
     from .qasm_parser import parse
@@ -118,8 +122,8 @@ def run_originq(qasm_str: str, shots: int) -> tuple[Dict[str, int], str | None]:
     return counts, None
 
 
-def run_real(qasm_str: str, target: str, shots: int) -> tuple[Dict[str, int], str | None]:
-    """执行电路，返回 (counts, job_id)。SDK 缺失或失败时抛异常，由 adapter 回退。"""
+def run_backend(qasm_str: str, target: str, shots: int) -> tuple[Dict[str, int], str | None]:
+    """Execute with a local vendor SDK and return ``(counts, local_task_id)``."""
     if target == "braket":
         return run_braket(qasm_str, shots)
     if target == "spinq":
@@ -127,6 +131,11 @@ def run_real(qasm_str: str, target: str, shots: int) -> tuple[Dict[str, int], st
     if target == "originq":
         return run_originq(qasm_str, shots)
     raise ValueError("unsupported target: %s" % target)
+
+
+def run_real(qasm_str: str, target: str, shots: int) -> tuple[Dict[str, int], str | None]:
+    """Backward-compatible alias; despite the old name, this is local simulation."""
+    return run_backend(qasm_str, target, shots)
 
 
 """L2: `agent_chat` — natural-language -> QASM / fix / backend selection.
