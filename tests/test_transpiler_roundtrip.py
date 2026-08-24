@@ -1,6 +1,7 @@
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -9,6 +10,7 @@ sys.path.insert(0, str(ROOT / "starter_kit"))
 from circuit_gen import random_circuit  # noqa: E402
 from qasm_parser import parse  # noqa: E402
 from simulator import probabilities, simulate  # noqa: E402
+import transpiler  # noqa: E402
 from transpiler import emit, parse_target, standardize_braket_qasm  # noqa: E402
 
 
@@ -71,6 +73,20 @@ class TranspilerRoundTripTests(unittest.TestCase):
             self.assertIn(standard, standardized)
         self.assert_distribution_close(
             probabilities(parse_target(standardized, "braket")),
+            probabilities(source),
+        )
+
+    def test_braket_stdgates_switch_changes_emitted_gate_names(self):
+        source = parse(ALL_GATES)
+        with mock.patch.object(transpiler, "BRAKET_USE_STDGATES", True):
+            emitted = emit(source, "braket")
+        self.assertIn("sdg", emitted)
+        self.assertIn("tdg", emitted)
+        self.assertIn("cp", emitted)
+        self.assertIn("ccx", emitted)
+        self.assertNotIn("cphaseshift", emitted)
+        self.assert_distribution_close(
+            probabilities(parse_target(emitted, "braket")),
             probabilities(source),
         )
 

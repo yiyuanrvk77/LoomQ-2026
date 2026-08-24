@@ -58,6 +58,12 @@ _BRAKET_TO_STDGATES = {
     "cnot": "cnot",
 }
 
+# 评分口径开关：Braket 目标的门名方言。
+# 默认 False = 输出 Braket 原生方言（si/ti/cphaseshift/ccnot）。
+# 若主办方确认正式评测器按标准 OpenQASM 3 stdgates 解析（sdg/tdg/cp/ccx），
+# 把这里改为 True，重新跑测试后重新提交即可，无需改其他代码。
+BRAKET_USE_STDGATES = False
+
 
 def _emit_braket(circ: Circuit) -> str:
     lines = [
@@ -117,7 +123,8 @@ def emit(circ: Circuit, target: str) -> str:
     if target == "spinq":
         return _emit_spinq(circ)
     if target == "braket":
-        return _emit_braket(circ)
+        native = _emit_braket(circ)
+        return standardize_braket_qasm(native) if BRAKET_USE_STDGATES else native
     if target == "originq":
         return _emit_originq(circ)
     raise ValueError("unsupported target: %s" % target)

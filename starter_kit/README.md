@@ -72,10 +72,19 @@ def run(qasm_str: str, target: str, shots: int) -> dict: ...
 
 `transpile(qasm, "braket")` 目前输出 **Braket 原生 OpenQASM 3 方言**：
 `sdg→si`、`tdg→ti`、`cu1→cphaseshift`、`ccx→ccnot`（AWS Braket 文档门集）。
-若正式评测器按 OpenQASM 3 标准 `stdgates.inc`（`sdg/tdg/cp/ccx`）解析，
-请先与主办方确认口径；必要时把输出经 `transpiler.standardize_braket_qasm()`
-转换为标准门名，或直接调整 `transpiler._BRAKET_GATES`。两种门名的等价性
-已由 round-trip 分布测试覆盖。
+两种门名的等价性已由 round-trip 分布测试覆盖。
+
+**切换方式（主办方确认后一键生效）**：
+
+```python
+# transpiler.py 顶部
+BRAKET_USE_STDGATES = True   # 输出标准 stdgates 名 sdg/tdg/cp/ccx
+```
+
+改完运行 `python3 starter_kit/evaluator.py --level l1 --target braket` 与全量测试，
+提交并推送后重新创建最终提交 Issue 即可。也可以在评审材料中说明：
+"Braket 目标使用 Braket 原生门名；如官方按 OpenQASM 3 标准解析，请以
+`BRAKET_USE_STDGATES=True` 切换"。
 
 L2、L3 为可选接口：
 

@@ -65,3 +65,18 @@
 - [ ] 真机附件待核验：`spinq_gemini_bell.official.json` 已满足官方 Schema 字段；
   仍须在量旋云控制台复核 `job_id=G-260816-0001` 与 counts 合计 1023 / 声明 1024 的差异
 - [ ] 附件：对应截图
+
+## 6. 评分口径确认（提交前请评审知悉）
+
+两项与正式评分口径相关的说明，已在代码与文档中落位，评审可按以下位置核对：
+
+1. **Braket 目标 IR 门名方言**：`transpile(qasm, "braket")` 默认输出 Braket 原生
+   OpenQASM 3 门名（`si/ti/cphaseshift/ccnot`，见 `transpiler.py` 的 `_BRAKET_GATES`）。
+   若正式评测器按 OpenQASM 3 标准 `stdgates.inc` 解析，请以
+   `transpiler.py` 顶部 `BRAKET_USE_STDGATES = True` 切换为标准名
+   （`sdg/tdg/cp/ccx`）；两种写法的语义等价性已由 round-trip 分布测试覆盖。
+2. **真机证据 shots 口径**：量旋云导出声明 `shots=1024`，但返回 counts 合计为 1023；
+   `reconcile_evidence.py` 按**实际返回样本数**整理为 `spinq_gemini_bell.official.json`
+   （`shots=1023`），差异如实保留在 `meta.declared_shots / meta.counts_total` 中。
+   申报 L1 真机分前请人工到量旋云控制台复核实际 shot 数；若控制台确认为 1024，
+   请重新导出原始数据再整理，不要手工补造计数。
