@@ -81,6 +81,7 @@ def reconcile(raw: dict, backend: str) -> dict:
             "counts_total": counts_total,
             "platform": raw.get("platform"),
             "platform_code": raw.get("platform_code"),
+            "platform_device_id": raw.get("platform_code") or raw.get("machine_code") or backend,
             "machine_code": raw.get("machine_code"),
             "machine_name": raw.get("machine_name"),
             "task_name": raw.get("task_name"),

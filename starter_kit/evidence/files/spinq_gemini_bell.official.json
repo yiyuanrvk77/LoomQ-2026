@@ -19,6 +19,7 @@
     "counts_total": 1023,
     "platform": "SpinQ Cloud",
     "platform_code": "gemini_vp",
+    "platform_device_id": "gemini_vp",
     "machine_code": "Gemini-pro-1",
     "machine_name": "2Qubit核磁量子计算机",
     "task_name": "LoomQ-Bell",
