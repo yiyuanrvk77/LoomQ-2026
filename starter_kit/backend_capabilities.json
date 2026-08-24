@@ -44,7 +44,7 @@
       "queue": "hours",
       "cost": "free_quota",
       "requires_account": true,
-      "notes": "需在本源量子云注册并申请 API Token；硬件 ID real_chip_wukong_72，支持最多 200 线路并行提交"
+      "notes": "需在本源量子云注册并申请 API Token；originq_wukong 是逻辑能力标识，物理设备 ID 必须通过 QCloudService 动态查询，real_chip_wukong_72、WK_C180_2 或其他当前可用设备均以平台返回为准"
     },
     {
       "id": "braket_local_simulator",

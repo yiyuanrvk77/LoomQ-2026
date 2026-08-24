@@ -13,4 +13,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
-CMD ["python", "evaluator.py", "--json-out", "/tmp/loomq-public-report.json"]
+# The image is a no-key public smoke check. L2 is opt-in and requires the
+# organizer-injected LOOMQ_LLM_* environment variables.
+CMD ["python", "evaluator.py", "--level", "l1", "--target", "spinq,originq,braket", "--json-out", "/tmp/loomq-public-report.json"]

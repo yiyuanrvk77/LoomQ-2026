@@ -32,7 +32,8 @@
 
 - `adapter.run()` 只负责题目要求的本地转译与模拟，生成的 `local-*` 任务号不能申报真机分；
 - 真机结果放在 `evidence/files/`，必须保留平台原始 `backend / job_id / shots / counts /
-  bit_order / timestamp`，平台控制台溯源由评审人工复核；
+  bit_order / timestamp`，并记录动态查询到的物理设备 ID；平台控制台溯源由评审人工复核。
+- 真机是 L1 的额外加分，不是 L1 入门资格、L2 智能体或包容奖的强制条件；平台维护或权限窗口关闭时，提交本地模拟器证据即可完成基础链路。
 - 若另写真机连接器，凭证只从环境变量读取（模板见 `.env.example`），不得写进网页、源码、
   JSON 证据或 Git 历史。
 

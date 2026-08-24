@@ -47,7 +47,8 @@
 - [x] 主要模块：见 ARCHITECTURE.md（qasm_parser / simulator / transpiler / backends / agent / hybrid 六层）
 - [x] 目标用户：不懂量子、但有真实问题要解决的跨界创作者（产品 / 设计 / 内容 / 领域专家）
 - [x] 完整使用流程：web_demo.py 输入自然语言 → agent 生成 QASM → transpile 转译 → 本地模拟出结果
-- [x] 附件：ARCHITECTURE.md、README.md，以及 outputs/ 下的技术文档与可视化
+- [x] 附件：`ARCHITECTURE.md`、`README.md`、`visualizations/` 下的可视化；提交收集器只归档
+  `starter_kit/`，不存在于仓库的外部 `outputs/` 不作为附件引用
 
 ## 4. 自定义量子 RISC-V 扩展指令（Bonus，最高 +8 分）
 
@@ -80,3 +81,13 @@
    （`shots=1023`），差异如实保留在 `meta.declared_shots / meta.counts_total` 中。
    申报 L1 真机分前请人工到量旋云控制台复核实际 shot 数；若控制台确认为 1024，
    请重新导出原始数据再整理，不要手工补造计数。
+## 7. 真机操作与证据规范
+
+真机不是 `adapter.run()` 的一部分，也不是 L1 入门资格、L2 交互或包容奖的强制条件。
+平台维护、设备离线或权限窗口关闭时，先提交并验证两个本地模拟器后端；不要用本地
+`local-*` job ID 冒充真机证据。
+
+需要申报真机加分时，按 `REAL_HARDWARE_EVIDENCE.md` 操作。OriginQ 使用
+`QCloudService` 动态查询当前在线设备，物理 ID 可以是 `WK_C180_2` 或其他平台实际返回值；
+SpinQ 可使用当前可用的 `gemini_vp` 等真实后端。每个平台都要保存平台原始任务详情、job ID、
+设备 ID、执行 QASM、shots、counts 和控制台可溯源信息。

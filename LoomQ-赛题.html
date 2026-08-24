@@ -391,7 +391,7 @@ footer p{margin-top:10px;font-size:16px;color:var(--ink-soft);letter-spacing:.08
   <p>构建转译与执行引擎。输入标准的 <strong>OpenQASM 2.0</strong> 电路，将其正确转译并驱动至以下后端：</p>
   <ol>
     <li><strong>量旋云 (SpinQ Cloud)</strong>：运行于 Taurus 模拟器或超导真机；</li>
-    <li><strong>本源量子云 (Origin Quantum)</strong>：将 QASM 翻译为 <code>OriginIR</code>，在本地模拟器或悟空真机运行；</li>
+    <li><strong>本源量子云 (Origin Quantum)</strong>：将 QASM 翻译为 <code>OriginIR</code>，在本地模拟器或当前可用真机运行；物理设备 ID 通过平台动态查询，不固定要求 <code>real_chip_wukong_72</code>；</li>
     <li><strong>AWS Braket</strong>：支持运行于 <code>LocalSimulator</code> 模拟器（免费、无需海外账号）或 AWS Braket 云端。</li>
   </ol>
   <p><strong>门白名单（划定工作量边界）</strong>：全部评测电路，包括公开、隐藏与评测日变体，只会使用以下 <strong>12 个 qelib1 标准门</strong>，不会出现白名单之外的门：</p>
@@ -408,6 +408,7 @@ footer p{margin-top:10px;font-size:16px;color:var(--ink-soft);letter-spacing:.08
     <li><strong>满分线</strong>：三平台统一适配 + 全部 8 个电路保真度达标 + 至少 2 个平台的真机证据（三套硬编码分支不算「通用」，评委会审查架构）。</li>
     <li><strong>真机定位</strong>：真机接入是<strong>加分阶梯，不是资格闸门</strong>。排队、审批等外部因素不会把任何队伍挡在评奖之外，但「第一次指挥真实量子计算机」值得你去拿这 10 分。</li>
   </ul>
+  <p><strong>L2 输出约束</strong>：智能体最终返回的 QASM 仍只能是 OpenQASM 2.0，并且只能使用上述 12 个门。模型若生成其他门，必须先等价分解并通过解析器校验后再返回。</p>
 
   <h3><span class="tag t2">L 2</span>说人话的智能体（AI 加分项 · 30 分）</h3>
   <div class="callout plum2">
@@ -419,7 +420,7 @@ footer p{margin-top:10px;font-size:16px;color:var(--ink-soft);letter-spacing:.08
     <li><strong>冲完整 30 分</strong>：在上述可自动评测代码之外，再提供一个可由零基础用户直接操作的 Agent 入口。网页、桌面／移动端或 CLI 均可，不强制图形界面；工作人员以最终提交代码实际运行评分。</li>
     <li><strong>不构成有效交付</strong>：只提交 Prompt 文档、对话截图、录屏或由选手人工操作第三方聊天产品，均不能替代可运行的 <code>agent_chat</code> 代码或交互入口。</li>
   </ul>
-  <p>「生成 QASM → 用自己的 L1 跑一遍自验 → 不对就重试」是提高正确率的推荐工程方案，不是客观 20 分对软件形态的硬性要求；客观分只按模型调用合规性与最终答案正确性判定。此处仅说明 L2 自身的交付边界，不改变 L1 入门档作为评奖资格线的要求。</p>
+  <p>「生成 QASM → 用自己的 L1 跑一遍自验 → 不对就重试」是提高正确率的推荐工程方案，不是客观 20 分对软件形态的硬性要求；客观分只按模型调用合规性与最终答案正确性判定。此处仅说明 L2 自身的交付边界，不改变 L1 入门档作为评奖资格线的要求。真机登录和平台凭证不是 L2 或包容奖的强制条件，本地模拟器可以完成自然语言 → QASM → 运行验证闭环。</p>
   <p>构建辅助前端的 Agent，降低非技术人员的门槛：</p>
   <ul>
     <li><strong>自然语言生成</strong>：根据意图表述自动写出正确的 OpenQASM 2.0 代码；</li>
@@ -484,6 +485,7 @@ cx q[0], q[1];</code></pre>
     <p class="callout-title">bit order 规范</p>
     <p><code>counts</code> 的 key 是经典寄存器位串，<strong>最右侧字符为 <code>c[0]</code></strong>（即 key = <code>c[n-1]…c[1]c[0]</code>，与 Qiskit 约定一致），<code>bit_order</code> 固定填 <code>"little"</code>。跨平台位序差异必须在中间层内归一化，这正是「通用」的一部分。</p>
   </div>
+  <p><strong>答辩与真机边界</strong>：不设置现场答辩或现场演示，提交时在 README、架构文档和代码中写清系统原理即可。真机登录不是 L1 入门资格、L2 或包容奖的强制条件；真机代码和 JSON 证据统一归档到 <code>starter_kit/evidence/</code>，不要求放入 <code>run()</code>。</p>
   <p><strong>L2 运行时规范</strong>：选手程序必须通过 <code>LOOMQ_LLM_BASE_URL</code>、<code>LOOMQ_LLM_API_KEY</code> 和 <code>LOOMQ_LLM_MODEL</code> 读取模型服务配置，不得硬编码 API 地址、密钥或模型名称。正式评测时，组委会将统一注入 DeepSeek 模型服务及调用预算；评测环境不保证能够访问其他外部网络服务。机器可读规则见 Starter Kit 的 <code>l2_policy.json</code>。</p>
   <p>第三方依赖必须精确锁定版本。正式评测以提交系统记录的完整 40 位 commit SHA 为准，在隔离环境中逐 case 运行。</p>
   <h3>最终提交</h3>
@@ -503,7 +505,7 @@ cx q[0], q[1];</code></pre>
   <div class="tbl-wrap"><table>
     <tr><th>平台</th><th>接入方式</th><th>说明</th></tr>
     <tr><td>量旋云 / SpinQit</td><td><code>uv pip install spinqit</code> (或 <code>pip install spinqit</code>)，自带 Taurus 本地模拟器，可接超导真机</td><td>最友好，推荐作为首个打通的真机</td></tr>
-    <tr><td>本源量子云</td><td>pyqpanda / QPanda3，QASM→OriginIR，可接悟空真机</td><td>需自行申请 API Token</td></tr>
+    <tr><td>本源量子云</td><td>pyqpanda / QPanda3，QASM→OriginIR，可接当前在线真机（设备 ID 动态查询）</td><td>需自行申请 API Token，平台维护时可只做本地测试</td></tr>
     <tr><td>AWS Braket</td><td><code>LocalSimulator</code> 本地模拟器免费、无需 AWS 账号</td><td>允许以本地模拟器替代付费云端真机</td></tr>
   </table></div>
   <p><strong>参考资料</strong>：</p>
@@ -521,7 +523,7 @@ cx q[0], q[1];</code></pre>
   <div class="callout gold">
     <p class="callout-title">◆ LoomQ 最佳包容性设计与优秀体验奖 (Best Inclusivity &amp; UX Award)</p>
     <p><strong>评选资格</strong>：在 L2 智能体交互、新手引导体验、无门槛可视化方向得分突出的队伍。</p>
-    <p style="margin-top:10px"><strong>评选标准</strong>：工具是否能做到「让一位没有任何量子背景的跨界创作者，在 5 分钟内依靠智能体引导，成功在真实量子机上完成人生第一个实验，并理解其科学原理」。本奖项旨在表彰打破精英主义壁垒、把先进算力带给更多人的包容性设计。</p>
+    <p style="margin-top:10px"><strong>评选标准</strong>：工具是否能做到「让一位没有任何量子背景的跨界创作者，在 5 分钟内依靠智能体引导，完成自然语言 → QASM → 运行验证，并理解其科学原理」。本奖项重点考察 L2 交互、新手引导和无门槛可视化，不要求用户登录真机；真机属于 L1 额外加分。</p>
   </div>
 </section>
 

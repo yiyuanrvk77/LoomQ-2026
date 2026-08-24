@@ -12,7 +12,7 @@
 | `spinq_taurus_simulator` | 量旋 SpinQit Taurus 本地模拟器 | 模拟器 | 24 | 无排队 | 免费 | 无 |
 | `spinq_cloud_qpu` | 量旋云真机（超导／核磁，2–8 比特） | 真机 | 8 | 分钟～小时级 | 免费额度 | 需注册 |
 | `originq_local_simulator` | 本源 pyqpanda 本地模拟器（CPUQVM） | 模拟器 | 30 | 无排队 | 免费 | 无 |
-| `originq_wukong` | 本源悟空超导真机（悟空芯 72 比特） | 真机 | 72 | 小时级 | 免费额度 | 需注册 + API Token |
+| `originq_wukong` | 本源量子云 OriginQ 真实后端（逻辑能力标识） | 真机 | 72（评测快照） | 小时级 | 免费额度 | 需注册 + API Token |
 | `braket_local_simulator` | AWS Braket LocalSimulator | 模拟器 | 25 | 无排队 | 免费 | 无 |
 | `braket_cloud` | AWS Braket 云端（SV1 / 各厂商 QPU） | 云模拟器／真机 | 34 | 分钟～小时级 | **付费**（按任务 + shots） | 需 AWS 账号 |
 
@@ -23,6 +23,8 @@
 - *"15 比特电路 + 零排队等待"* → 需要 `max_qubits ≥ 15` 且 `queue = none` → 正确答案集：`spinq_taurus_simulator`、`originq_local_simulator`、`braket_local_simulator`（回复包含其中任一规范标识即通过）。
 - *"在真实量子硬件上跑一个 5 比特电路，不想花钱"* → `kind = qpu` 且 `max_qubits ≥ 5` 且 `cost ≠ paid` → 正确答案集：`spinq_cloud_qpu`、`originq_wukong`。
 - *"50 比特电路"* → 无后端满足 → 正确回答是**如实说明超出所有可用后端能力**，并给出最接近的替代（如拆解电路或用 `originq_wukong` 的 72 比特真机——若约束允许排队）。
+
+OriginQ 的 `originq_wukong` 是逻辑选型标识，不是强制物理设备名。真实运行前使用 `QCloudService` 动态查询在线设备，实际返回的设备名或 ID（例如 `WK_C180_2`）应与 job 记录一起归档。平台维护、设备下线或权限窗口关闭时，不应把本地模拟器 job 伪报为真机 job。
 
 ## 给 Agent 实现者的提示
 

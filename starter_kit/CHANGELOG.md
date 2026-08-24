@@ -9,7 +9,9 @@
 
 - Publish the environment-only OpenAI-compatible L2 runtime contract.
 - Fix the formal L2 scoring model to DeepSeek `deepseek-v4-flash`.
-- Publish per-case call, token, and timeout budgets in `l2_policy.json`.
+- Publish the formal model, temperature, case count, and per-case timeout in
+  `l2_policy.json`; organizer-side call and token budgets remain enforced by
+  the formal runner, while the client documents its own output default.
 - Add a dependency-free `llm_client.py` transport helper without prompts or scoring logic.
 - Clarify that the organizer provides no API endpoint, key, or credit before formal scoring.
 

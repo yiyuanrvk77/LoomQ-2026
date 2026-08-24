@@ -139,6 +139,8 @@ python3 starter_kit/prepare_submission.py --team-id <GITHUB_USERNAME>
 
 正式限制为每个 case 时限 120 秒；两组固定私有种子共 12 个 case。机器可读版本见 `l2_policy.json`。
 
+L2 模型返回的 QASM 必须是 OpenQASM 2.0，并且只能包含题面规定的 12 个门。Agent 的确定性解析器会拒绝白名单外的门；如果模型先输出了 `u3`、`p`、`cz` 等门，必须在返回给评测器前等价分解到白名单。
+
 `llm_client.py` 是可选的无依赖传输示例，不包含 Prompt、Agent 策略或参考答案。使用自己的 DeepSeek Key 调试时可设置：
 
 ```bash
@@ -156,15 +158,24 @@ python3 evaluator.py --level l2
 
 ## 本地模拟与真机凭证
 
+提交前可先运行 `python3 environment_check.py --run-public` 检查 Python、必需文件、策略 JSON、
+临时文件权限和三后端公开自测。`spinqit`、`pyqpanda`、`braket` 未安装时，公开 L1 仍会走
+内置模拟器回退；它们只在需要复核厂商 SDK 或申报对应真机时才是外部依赖。
+
 `adapter.run()` 的三个 target 都是本地模拟执行：优先使用厂商本地 SDK，缺少 SDK 时回退到
 内置模拟器。返回的 `meta.is_hardware` 固定为 `false`，`local-*` job ID 不能作为真机证据。
-按主办方口径，真机不需要放进 `run()`；原始结果与说明统一归档到 `evidence/`。
+按主办方口径，真机不需要放进 `run()`；原始结果、动态设备查询记录和说明统一归档到 `evidence/`。
+真机平台可能维护或只在特定时间窗口开放权限，L1 基础分和包容奖不要求真机登录；真机只用于 L1 额外加分。
+OriginQ 的物理设备 ID 不固定，使用 `QCloudService` 查询到的当前在线设备即可（例如 `WK_C180_2`）；SpinQ 也可使用当前可用的 `gemini_vp` 等真实后端。
 为避免隐藏输入耗尽评测内存，内置状态向量回退明确限制为 20 比特、单次最多 1,000,000 shots；
 需要更大电路时应安装对应厂商的本地 SDK，而不是绕过该保护。
 
 如果后续增加独立真机连接器，只能从环境变量读取 Token 或账号，不得写入代码和仓库。
 `.env.example` 提供 `LOOMQ_SPINQ_TOKEN`、`LOOMQ_ORIGINQ_TOKEN` 与 AWS 标准凭证变量的空模板；
 当前网页不会读取这些变量，也不会要求零基础用户在浏览器中输入平台凭证。
+
+真机证据的字段和操作步骤见 `evidence/REAL_HARDWARE_EVIDENCE.md`；提交前可运行
+`python3 evidence/validate_hardware_result.py <result.json>` 做本地 Schema 检查。
 
 ## 版本政策
 
