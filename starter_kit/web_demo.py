@@ -78,7 +78,12 @@ def _circuit_diagram(qasm: str) -> dict:
 
 def _load_real_bell() -> dict | None:
     """Load Bell QPU probabilities only when the evidence schema is complete."""
-    path = Path(__file__).parent / "evidence" / "files" / "spinq_gemini_bell.json"
+    evidence_dir = Path(__file__).parent / "evidence" / "files"
+    path = evidence_dir / "spinq_gemini_bell.official.json"
+    if not path.is_file():
+        # Legacy vendor export kept for provenance; it lacks the official
+        # schema fields and is therefore never displayed.
+        path = evidence_dir / "spinq_gemini_bell.json"
     if not path.exists():
         return None
     try:

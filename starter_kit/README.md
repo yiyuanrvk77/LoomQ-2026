@@ -68,6 +68,15 @@ def run(qasm_str: str, target: str, shots: int) -> dict: ...
 
 `transpile()` 的三个目标格式不是任意字符串，规范子集见 `target_ir_contract.md`。正式评测会由组织方解析并模拟返回的目标 IR。
 
+### Braket 目标门名说明（提交前请与主办方确认）
+
+`transpile(qasm, "braket")` 目前输出 **Braket 原生 OpenQASM 3 方言**：
+`sdg→si`、`tdg→ti`、`cu1→cphaseshift`、`ccx→ccnot`（AWS Braket 文档门集）。
+若正式评测器按 OpenQASM 3 标准 `stdgates.inc`（`sdg/tdg/cp/ccx`）解析，
+请先与主办方确认口径；必要时把输出经 `transpiler.standardize_braket_qasm()`
+转换为标准门名，或直接调整 `transpiler._BRAKET_GATES`。两种门名的等价性
+已由 round-trip 分布测试覆盖。
+
 L2、L3 为可选接口：
 
 ```python

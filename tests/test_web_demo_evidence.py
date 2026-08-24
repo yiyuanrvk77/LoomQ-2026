@@ -1,3 +1,4 @@
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -23,8 +24,20 @@ class RealEvidenceValidationTests(unittest.TestCase):
         data.update(overrides)
         return data
 
-    def test_current_incomplete_evidence_is_not_displayed(self):
-        self.assertIsNone(web_demo._load_real_bell())
+    def test_legacy_vendor_export_is_rejected(self):
+        raw = json.loads(
+            (ROOT / "starter_kit" / "evidence" / "files" / "spinq_gemini_bell.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertIsNone(web_demo._validated_real_probabilities(raw))
+
+    def test_reconciled_official_evidence_is_displayed(self):
+        probabilities = web_demo._load_real_bell()
+        self.assertIsNotNone(probabilities)
+        self.assertAlmostEqual(sum(probabilities.values()), 1.0)
+        self.assertIn("00", probabilities)
+        self.assertGreater(probabilities["00"], probabilities["01"])
 
     def test_complete_traceable_counts_are_normalized(self):
         self.assertEqual(

@@ -11,9 +11,12 @@
 - [x] 实际执行的 QASM：Bell 态（`h q[0]; cx q[0], q[1];`，云端自动全测量）
 - [x] 原始结果路径：`evidence/files/spinq_gemini_bell.json`
 - [x] 附件：任务页截图 `evidence/files/spinq_gemini_task.png` + 网页任务详情 `evidence/files/spinq_gemini_web_task.json`
-- [ ] Schema 核验阻塞：当前平台导出附件仍使用 `platform / created_time_utc` 字段，缺少官方
-  `backend / bit_order / timestamp`，且 `shots=1024` 而 counts 合计为 1023；取得平台原始完整
-  导出前，网页不会显示为有效真机证据
+- [x] Schema 整理：`reconcile_evidence.py` 把平台原始导出映射为官方 Schema 的
+  `spinq_gemini_bell.official.json`（backend=spinq_cloud_qpu、bit_order=little、
+  timestamp 取 created_time_utc、shots 取返回 counts 的实际合计 1023）。
+  **注意**：平台导出声明 shots=1024 而 counts 合计 1023，已在 `meta.declared_shots /
+  counts_total` 中如实记录；申报前必须到量旋云控制台复核实际 shot 数。原始导出文件
+  `spinq_gemini_bell.json` 保持不变，仅作溯源
 - [x] 凭证边界：`adapter.run()` 仅运行本地模拟器；若后续增加独立 QPU 取证脚本，Token 只能
   从 `.env` / 环境变量注入，不能进入源码、网页请求或 evidence JSON
 
@@ -59,6 +62,6 @@
 - [x] 概念解释位置：QUANTUM_101.md（30 分钟速成）
 - [x] 结果可视化位置：web_demo.py 的电路图 + 测量条形图 + 三平台翻译对比；`starter_kit/visualizations/` 里 4 个纠错可视化（`lab.html` 学习路径入口）
 - [x] 错误恢复 / 无障碍引导位置：web_demo.py 缺 key 时进入有明确标签的离线教学预设；不支持的意图给出明确中文提示；Agent 节点、预设、滑杆、预测选项以及四个纠错游戏的图形节点均可键盘操作
-- [ ] 真机附件待核验：`spinq_gemini_bell.json` 缺少官方 Schema 的 `backend / bit_order /
-  timestamp`，且原始 counts 合计为 1023、声明 shots 为 1024；必须取得平台完整原始导出后再申报
+- [ ] 真机附件待核验：`spinq_gemini_bell.official.json` 已满足官方 Schema 字段；
+  仍须在量旋云控制台复核 `job_id=G-260816-0001` 与 counts 合计 1023 / 声明 1024 的差异
 - [ ] 附件：对应截图

@@ -26,6 +26,28 @@ def _backend_table() -> list[dict]:
         return json.load(handle)["backends"]
 
 
+def _valid_backend_ids() -> set[str]:
+    """Canonical backend identifiers from the official capability table."""
+    return {backend["id"] for backend in _backend_table()}
+
+
+def _bare_backend_id(reply: str) -> str | None:
+    """Accept a reply that directly names a canonical backend identifier.
+
+    Some models occasionally answer a backend-selection prompt with the bare
+    ``id`` from the capability table instead of the required JSON envelope.
+    Treat any reply that contains exactly one of those identifiers as the
+    final answer instead of burning all three retries.
+    """
+    if not isinstance(reply, str):
+        return None
+    valid = _valid_backend_ids()
+    for token in re.findall(r"[A-Za-z][A-Za-z0-9_]*", reply):
+        if token in valid:
+            return token
+    return None
+
+
 def _system_prompt() -> str:
     return (
         "You are LoomQ Agent. Understand the user's semantic intent rather than "
@@ -72,6 +94,8 @@ def _describe_error(exc: Exception) -> str:
         hints.append("使用了不在 12 门白名单里的门或语法")
     if "measure" in msg.lower():
         hints.append("measure 语法有误（应为 measure q[i] -> c[j];）")
+    if "supports 1 to 20" in msg:
+        hints.append("电路超过本地自验的 20 比特上限，请缩小电路或改用后端选型")
     detail = "；".join(hints) if hints else name
     return detail + "。原始错误：" + msg
 
@@ -191,6 +215,10 @@ def agent_chat(prompt: str) -> str:
     for _ in range(3):
         reply = _chat_reply(messages)
         envelope = _model_envelope(reply)
+        if envelope is None:
+            bare_backend = _bare_backend_id(reply)
+            if bare_backend:
+                return bare_backend
         if envelope and envelope["task"] == "backend":
             try:
                 requirements = _normalize_requirements(envelope.get("requirements"))

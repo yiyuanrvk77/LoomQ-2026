@@ -123,15 +123,3 @@ def random_circuit(n: int, gates_count: int, seed: int) -> str:
         lines.append(f"measure q[{i}] -> c[{i}];")
     return "\n".join(lines) + "\n"
 
-
-"""L3: Hybrid-QASM (classical block) -> quantum ops + RISC-V assembly.
-
-The classical mini-language is intentionally small:
-    integer literals, registers r1..r9, measurement bits c[k],
-    operators + - == !=, if/else and sequential assignment.
-
-Registers r1..r9 map to RISC-V x1..x9, and c[k] maps to x(10+k) (injected
-by the evaluation system). We emit only `li / add / sub / addi / beq / bne / j`,
-the exact instruction subset supported by the official `riscv_emulator.py`.
-"""
-

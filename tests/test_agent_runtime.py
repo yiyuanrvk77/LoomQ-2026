@@ -110,6 +110,17 @@ class AgentRuntimeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "non-negative integer"):
             agent._normalize_requirements(requirements)
 
+    def test_bare_backend_id_reply_is_accepted(self):
+        with mock.patch.object(agent, "_chat_reply", return_value="braket_local_simulator") as call:
+            self.assertEqual(agent.agent_chat("15 比特零排队免费选哪个平台？"), "braket_local_simulator")
+        self.assertEqual(call.call_count, 1)
+
+    def test_backend_id_inside_prose_is_accepted(self):
+        reply = "推荐使用 AWS 本地模拟器，标识为 originq_wukong（可排队）。"
+        with mock.patch.object(agent, "_chat_reply", return_value=reply) as call:
+            self.assertEqual(agent.agent_chat("真机 5 比特免费选哪个？"), "originq_wukong")
+        self.assertEqual(call.call_count, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

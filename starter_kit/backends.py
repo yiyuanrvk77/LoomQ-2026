@@ -136,11 +136,3 @@ def run_backend(qasm_str: str, target: str, shots: int) -> tuple[Dict[str, int],
 def run_real(qasm_str: str, target: str, shots: int) -> tuple[Dict[str, int], str | None]:
     """Backward-compatible alias; despite the old name, this is local simulation."""
     return run_backend(qasm_str, target, shots)
-
-
-"""L2: `agent_chat` — natural-language -> QASM / fix / backend selection.
-
-Reads the `LOOMQ_LLM_*` environment variables and calls any OpenAI-compatible
-chat-completions endpoint. A "generate -> self-verify -> retry" loop validates
-generated QASM with the L1 engine before returning.
-"""

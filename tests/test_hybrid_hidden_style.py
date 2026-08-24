@@ -65,6 +65,29 @@ class HybridHiddenStyleTests(unittest.TestCase):
                     actual = tuple(emulator.get_register("x%d" % i) for i in range(1, 6))
                     self.assertEqual(actual, reference(c0, c1))
 
+    def test_comment_containing_classical_keyword_is_ignored(self):
+        commented = SOURCE.replace(
+            "classical {",
+            "// a comment mentioning classical logic\nclassical {",
+        )
+        quantum_ops, assembly = compile_hybrid(commented)
+        self.assertEqual(
+            quantum_ops,
+            ["h q[0]", "measure q[0] -> c[0]", "cx q[0], q[1]", "measure q[1] -> c[1]"],
+        )
+        emulator = TinyRISCVEmulator()
+        emulator.load_program(assembly)
+        emulator.set_register("x10", 1)
+        emulator.set_register("x11", 0)
+        emulator.execute()
+        self.assertEqual(tuple(emulator.get_register("x%d" % i) for i in range(1, 6)), reference(1, 0))
+
+    def test_comment_after_classical_block_does_not_raise(self):
+        commented = SOURCE + "\n// classical part finished\n"
+        quantum_ops, assembly = compile_hybrid(commented)
+        self.assertIn("measure q[1] -> c[1]", quantum_ops)
+        self.assertIn("li x1", assembly)
+
 
 if __name__ == "__main__":
     unittest.main()

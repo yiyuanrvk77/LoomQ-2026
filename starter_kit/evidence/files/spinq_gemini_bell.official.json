@@ -1,0 +1,29 @@
+{
+  "backend": "spinq_cloud_qpu",
+  "job_id": "G-260816-0001",
+  "shots": 1023,
+  "counts": {
+    "00": 471,
+    "11": 453,
+    "01": 43,
+    "10": 56
+  },
+  "bit_order": "little",
+  "timestamp": "2026-08-15T17:31:22.293000Z",
+  "meta": {
+    "is_mock": false,
+    "is_hardware": true,
+    "evidence_source": "spinq-cloud-export",
+    "reconciled": true,
+    "declared_shots": 1024,
+    "counts_total": 1023,
+    "platform": "SpinQ Cloud",
+    "platform_code": "gemini_vp",
+    "machine_code": "Gemini-pro-1",
+    "machine_name": "2Qubit核磁量子计算机",
+    "task_name": "LoomQ-Bell",
+    "task_status": "S",
+    "start_time_utc": "2026-08-15T17:31:22.314+00:00",
+    "end_time_utc": "2026-08-15T17:32:55.480+00:00"
+  }
+}

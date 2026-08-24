@@ -350,9 +350,20 @@ def _compile_classical(statements: list, num_clbits: int) -> str:
 # --------------------------------------------------------------------------- #
 # Hybrid-QASM splitting
 # --------------------------------------------------------------------------- #
+def _strip_comments(text: str) -> str:
+    """Remove `//` line comments before keyword scanning.
+
+    The classical-block keyword must never be matched inside a comment:
+    a comment such as ``// classical logic`` used to either drop the quantum
+    operation sequence or raise ``classical block missing '{'``.
+    """
+    return "\n".join(line.split("//", 1)[0] for line in text.splitlines())
+
+
 def _extract_classical(text: str) -> tuple[str, list[str]]:
     quantum_parts: list[str] = []
     classical_bodies: list[str] = []
+    text = _strip_comments(text)
     i = 0
     n = len(text)
     keyword = "classical"
@@ -369,8 +380,11 @@ def _extract_classical(text: str) -> tuple[str, list[str]]:
             i = after
             continue
         quantum_parts.append(text[i:idx])
-        brace = text.find("{", after)
-        if brace == -1:
+        # The block brace must directly follow the keyword (whitespace only).
+        brace = after
+        while brace < n and text[brace].isspace():
+            brace += 1
+        if brace >= n or text[brace] != "{":
             raise ValueError("classical block missing '{'")
         depth = 0
         j = brace
@@ -425,8 +439,9 @@ def _parse_quantum_ops(text: str) -> list[str]:
 
 def compile_hybrid(hybrid_qasm_str: str) -> tuple[list[str], str]:
     """Return (quantum operation sequence, RISC-V assembly text)."""
-    quantum_text, classical_bodies = _extract_classical(hybrid_qasm_str)
-    num_clbits = _parse_creg_size(hybrid_qasm_str)
+    cleaned = _strip_comments(hybrid_qasm_str)
+    quantum_text, classical_bodies = _extract_classical(cleaned)
+    num_clbits = _parse_creg_size(cleaned)
     quantum_ops = _parse_quantum_ops(quantum_text)
 
     statements = []
@@ -435,13 +450,3 @@ def compile_hybrid(hybrid_qasm_str: str) -> tuple[list[str], str]:
 
     assembly = _compile_classical(statements, num_clbits)
     return quantum_ops, assembly
-
-
-
-"""Real SDK runners for `run()`, with a zero-dependency simulator fallback.
-
-The organizer grades L1 semantic equivalence by simulating your `transpile()`
-output itself, so these runners are mainly for (a) the public self-check and
-(b) real-machine evidence. Each runner raises if its SDK is missing, and the
-adapter falls back to the built-in simulator in that case.
-"""

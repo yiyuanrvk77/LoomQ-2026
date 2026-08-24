@@ -267,12 +267,3 @@ def parse(qasm: str) -> Circuit:
         gates=gates,
         measures=measures,
     )
-
-
-
-"""A tiny noiseless state-vector simulator for the 12-gate whitelist.
-
-This exists so the skeleton can self-verify `run()` without installing any
-quantum SDK. Swap this out for the real SpinQit / pyqpanda / Braket runners
-once you wire up true-machine evidence.
-"""

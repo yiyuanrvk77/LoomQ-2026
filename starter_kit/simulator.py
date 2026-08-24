@@ -242,6 +242,3 @@ def simulate_with_noise(circuit: Circuit, shots: int, error_rate: float = 0.02) 
     return counts
 
 
-"""Emit the unified IR as each backend's native target representation."""
-
-

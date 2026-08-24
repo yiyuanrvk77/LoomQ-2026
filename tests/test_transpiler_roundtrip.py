@@ -9,7 +9,7 @@ sys.path.insert(0, str(ROOT / "starter_kit"))
 from circuit_gen import random_circuit  # noqa: E402
 from qasm_parser import parse  # noqa: E402
 from simulator import probabilities, simulate  # noqa: E402
-from transpiler import emit, parse_target  # noqa: E402
+from transpiler import emit, parse_target, standardize_braket_qasm  # noqa: E402
 
 
 ALL_GATES = """OPENQASM 2.0;
@@ -60,6 +60,19 @@ class TranspilerRoundTripTests(unittest.TestCase):
             'x q[0]; measure q -> c;'
         )
         self.assertEqual(simulate(circuit, 32), {"001": 32})
+
+    def test_braket_dialect_can_be_standardized_to_stdgates_names(self):
+        source = parse(ALL_GATES)
+        braket = emit(source, "braket")
+        self.assertIn("si", braket)
+        standardized = standardize_braket_qasm(braket)
+        for native, standard in (("si", "sdg"), ("ti", "tdg"), ("cphaseshift", "cp"), ("ccnot", "ccx")):
+            self.assertNotIn(native, standardized)
+            self.assertIn(standard, standardized)
+        self.assert_distribution_close(
+            probabilities(parse_target(standardized, "braket")),
+            probabilities(source),
+        )
 
 
 if __name__ == "__main__":
