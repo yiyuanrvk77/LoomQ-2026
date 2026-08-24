@@ -88,6 +88,61 @@ class HybridHiddenStyleTests(unittest.TestCase):
         self.assertIn("measure q[1] -> c[1]", quantum_ops)
         self.assertIn("li x1", assembly)
 
+    def test_large_classical_register_chain_needs_no_scratch_registers(self):
+        # creg >= 22 leaves no scratch registers (x32+ do not exist), so the
+        # code generator must combine simple register operands without temps.
+        source = """OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[6];
+creg c[30];
+measure q[0] -> c[0];
+measure q[1] -> c[1];
+measure q[2] -> c[2];
+measure q[3] -> c[3];
+measure q[4] -> c[4];
+measure q[5] -> c[5];
+classical { r1 = c[0] + c[1] + c[2] + c[3] + c[4] + c[5]; }
+"""
+        quantum_ops, assembly = compile_hybrid(source)
+        self.assertEqual(len(quantum_ops), 6)
+        for values in ((0, 0, 0, 0, 0, 0), (1, 1, 1, 1, 1, 1), (1, 0, 1, 0, 1, 0)):
+            with self.subTest(values=values):
+                emulator = TinyRISCVEmulator()
+                emulator.load_program(assembly)
+                for index, value in enumerate(values):
+                    emulator.set_register("x%d" % (10 + index), value)
+                emulator.execute()
+                self.assertEqual(emulator.get_register("x1"), sum(values))
+
+    def test_binop_with_destination_register_operand_stays_correct(self):
+        source = """OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[2];
+creg c[2];
+measure q[0] -> c[0];
+measure q[1] -> c[1];
+classical {
+  r1 = 5;
+  r1 = r1 + c[0] + c[1];
+  r2 = c[0] - r1;
+  r3 = r1 - c[1];
+}
+"""
+        quantum_ops, assembly = compile_hybrid(source)
+        self.assertEqual(len(quantum_ops), 2)
+        for c0 in (0, 1):
+            for c1 in (0, 1):
+                with self.subTest(c0=c0, c1=c1):
+                    emulator = TinyRISCVEmulator()
+                    emulator.load_program(assembly)
+                    emulator.set_register("x10", c0)
+                    emulator.set_register("x11", c1)
+                    emulator.execute()
+                    r1 = 5 + c0 + c1
+                    self.assertEqual(emulator.get_register("x1"), r1)
+                    self.assertEqual(emulator.get_register("x2"), c0 - r1)
+                    self.assertEqual(emulator.get_register("x3"), r1 - c1)
+
 
 if __name__ == "__main__":
     unittest.main()

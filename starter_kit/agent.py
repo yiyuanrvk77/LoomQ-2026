@@ -213,7 +213,21 @@ def agent_chat(prompt: str) -> str:
     last_error = "model response did not contain a valid task envelope"
 
     for _ in range(3):
-        reply = _chat_reply(messages)
+        try:
+            reply = _chat_reply(messages)
+        except Exception as exc:  # noqa: BLE001 - transport/parse failures are retryable
+            last_error = "%s: %s" % (type(exc).__name__, exc)
+            messages.append(
+                {
+                    "role": "user",
+                    "content": (
+                        "Your previous model call failed with a transient error "
+                        "(%s). Retry and return exactly one JSON object matching "
+                        "the required schema."
+                    ) % last_error,
+                }
+            )
+            continue
         envelope = _model_envelope(reply)
         if envelope is None:
             bare_backend = _bare_backend_id(reply)

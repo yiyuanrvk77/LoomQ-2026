@@ -275,7 +275,27 @@ def _gen_binop(expr: BinOp, dest: str, alloc: _Alloc, out: list[str]) -> None:
             out.append("sub %s, x0, %s" % (dest, dest))
             out.append("addi %s, %s, %d" % (dest, dest, left.value))
         return
-    # Both operands are register-like.
+    if isinstance(left, (Reg, CBit)) and isinstance(right, (Reg, CBit)):
+        # Both operands are single registers: reads happen before the write,
+        # so no scratch register is required (safe even when one of them is
+        # the destination itself, e.g. ``r1 = r1 + c[0]``).
+        if op == "+":
+            out.append("add %s, %s, %s" % (dest, _reg_name(left), _reg_name(right)))
+        else:
+            out.append("sub %s, %s, %s" % (dest, _reg_name(left), _reg_name(right)))
+        return
+    if isinstance(right, (Reg, CBit)) and _reg_name(right) != dest:
+        # Right is a stable single register that is not the destination:
+        # materialize the left subtree into dest, then combine directly.
+        # (The ``!= dest`` guard keeps the right operand's value intact.)
+        _gen_expr(left, dest, alloc, out)
+        if op == "+":
+            out.append("add %s, %s, %s" % (dest, dest, _reg_name(right)))
+        else:
+            out.append("sub %s, %s, %s" % (dest, dest, _reg_name(right)))
+        return
+    # Both operands are complex (or the simple right operand is `dest`):
+    # keep the original two-register strategy.
     temp = alloc.alloc()
     _gen_expr(right, temp, alloc, out)
     _gen_expr(left, dest, alloc, out)

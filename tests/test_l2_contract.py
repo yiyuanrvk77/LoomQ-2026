@@ -95,6 +95,19 @@ class PublicL2ContractTests(unittest.TestCase):
                 client.chat_completion([{"role": "user", "content": "hello"}])
         self.assertNotIn("do-not-echo", str(caught.exception))
 
+    def test_nonfinite_timeout_configuration_is_rejected(self):
+        client = load_client()
+        for bad_value in ("nan", "inf", "-inf"):
+            environment = {
+                "LOOMQ_LLM_BASE_URL": "http://127.0.0.1:1",
+                "LOOMQ_LLM_API_KEY": "local-key",
+                "LOOMQ_LLM_MODEL": "local-model",
+                "LOOMQ_LLM_TIMEOUT_SECONDS": bad_value,
+            }
+            with mock.patch.dict(os.environ, environment, clear=True):
+                with self.assertRaisesRegex(RuntimeError, "finite"):
+                    client._configuration()
+
     def test_client_works_with_an_openai_compatible_endpoint(self):
         server = ThreadingHTTPServer(("127.0.0.1", 0), CompatibleAPIHandler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)

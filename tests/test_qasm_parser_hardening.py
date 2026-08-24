@@ -38,6 +38,12 @@ class QasmParserHardeningTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "finite"):
             parse(BASE.replace("h q[0];", "rz(1e309) q[0];"))
 
+    def test_uncomputable_parameter_expressions_raise_value_error(self):
+        for expression in ("0**-1", "10**400", "1/0"):
+            with self.subTest(expression=expression):
+                with self.assertRaisesRegex(ValueError, "not computable"):
+                    parse(BASE.replace("h q[0];", "rz(%s) q[0];" % expression))
+
     def test_uppercase_gate_does_not_hide_a_repair_error(self):
         with self.assertRaisesRegex(ValueError, "case-sensitive"):
             parse(BASE.replace("h q[0];", "H q[0];"))

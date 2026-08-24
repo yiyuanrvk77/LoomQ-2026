@@ -60,6 +60,8 @@ class TinyRISCVEmulator:
         self.max_steps = 1000  # 防止死循环
 
     def set_register(self, reg: str, value: int):
+        """Write a register. 注意：``load_program()`` 会重置所有寄存器，
+        因此注入测量值（x10..）必须放在 ``load_program()`` 之后。"""
         idx = self._parse_reg_idx(reg)
         if idx != 0:
             self.registers[idx] = value
@@ -80,6 +82,9 @@ class TinyRISCVEmulator:
     def load_program(self, asm_code: str):
         """
         解析汇编代码并建立标签索引
+
+        注意：会重置 PC、标签与全部寄存器（x0-x31），调用方应在
+        ``load_program()`` 之后再用 ``set_register()`` 注入测量值。
         """
         self.instructions = []
         self.labels = {}

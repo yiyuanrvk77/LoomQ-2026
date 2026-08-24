@@ -70,7 +70,11 @@ def _eval_expression(text: str) -> float:
     text = text.strip()
     if not text:
         raise ValueError("empty parameter expression")
-    value = _eval_param(ast.parse(text, mode="eval"))
+    try:
+        value = _eval_param(ast.parse(text, mode="eval"))
+    except ArithmeticError as exc:
+        # e.g. 0**-1 (ZeroDivisionError) or 10**400 (OverflowError).
+        raise ValueError("gate parameter expression is not computable") from exc
     if not math.isfinite(value):
         raise ValueError("gate parameter must be finite")
     return value

@@ -145,11 +145,14 @@ python3 starter_kit/prepare_submission.py --team-id <GITHUB_USERNAME>
 export LOOMQ_LLM_BASE_URL=https://api.deepseek.com
 export LOOMQ_LLM_API_KEY=<YOUR_OWN_KEY>
 export LOOMQ_LLM_MODEL=deepseek-v4-flash
-export LOOMQ_LLM_TIMEOUT_SECONDS=120
+export LOOMQ_LLM_TIMEOUT_SECONDS=35
 python3 evaluator.py --level l2
 ```
 
 缺少配置时应立即失败，错误信息不得包含任何 Key。正式评测时，组委会将统一注入 DeepSeek 模型服务及调用预算；评测环境不保证能够访问其他外部网络服务。若参加 L2，请把 `submission.yaml` 中的 `levels.l2` 与 `network.required_for_l2` 同时改为 `true`；`allowed_hosts` 不用于申请正式评测中的任意公网访问。
+
+`LOOMQ_LLM_TIMEOUT_SECONDS` 默认 35 秒：`agent_chat` 最多重试 3 次，单 case 时限
+120 秒，默认值保证 3 次尝试（约 105 秒）落在预算内；正式评测注入的值优先。
 
 ## 本地模拟与真机凭证
 

@@ -121,6 +121,23 @@ class AgentRuntimeTests(unittest.TestCase):
             self.assertEqual(agent.agent_chat("真机 5 比特免费选哪个？"), "originq_wukong")
         self.assertEqual(call.call_count, 1)
 
+    def test_transport_error_is_retried_before_success(self):
+        with mock.patch.object(
+            agent,
+            "_chat_reply",
+            side_effect=[KeyError("choices"), circuit_reply(VALID_BELL)],
+        ) as call:
+            self.assertEqual(agent.agent_chat("make a bell state"), VALID_BELL)
+        self.assertEqual(call.call_count, 2)
+
+    def test_persistent_transport_error_raises_after_three_attempts(self):
+        with mock.patch.object(
+            agent, "_chat_reply", side_effect=KeyError("choices")
+        ) as call:
+            with self.assertRaisesRegex(RuntimeError, "could not produce a validated result"):
+                agent.agent_chat("make a bell state")
+        self.assertEqual(call.call_count, 3)
+
 
 if __name__ == "__main__":
     unittest.main()
