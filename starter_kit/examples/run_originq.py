@@ -8,13 +8,41 @@ import json
 
 try:
     import pyqpanda as pq
+    PYQPANDA3 = False
 except ImportError:
-    # 允许没有安装 pyqpanda 时仅做语法和结构提示
-    pq = None
+    try:
+        from pyqpanda3.core import CPUQVM
+        from pyqpanda3.intermediate_compiler import convert_qasm_string_to_qprog
+        pq = None
+        PYQPANDA3 = True
+    except ImportError:
+        # 允许没有安装 pyQPanda 时仅做语法和结构提示
+        pq = None
+        PYQPANDA3 = False
 
 def run_on_originq_simulator(qasm_str: str, shots: int = 1024) -> dict:
-    if pq is None:
-        raise ImportError("未安装 pyqpanda，无法运行本示例。请安装后重试。")
+    if pq is None and not PYQPANDA3:
+        raise ImportError("未安装 pyqpanda/pyqpanda3，无法运行本示例。请安装后重试。")
+
+    if PYQPANDA3:
+        prog = convert_qasm_string_to_qprog(qasm_str)
+        machine = CPUQVM()
+        machine.run(prog, shots)
+        raw_counts = machine.result().get_counts()
+        num_bits = 2
+        formatted_counts = {
+            str(key).zfill(num_bits): int(value)
+            for key, value in raw_counts.items()
+        }
+        return {
+            "backend": "originq_cpu_simulator",
+            "job_id": "originq3-sim-job-local",
+            "shots": shots,
+            "counts": formatted_counts,
+            "bit_order": "little",
+            "timestamp": "2026-07-06T10:00:00Z",
+            "meta": {"qubits_count": num_bits, "sdk": "pyqpanda3"},
+        }
 
     # 1. 初始化量子虚拟机器 (QVM)
     machine = pq.CPUQVM()

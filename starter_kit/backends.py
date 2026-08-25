@@ -89,12 +89,16 @@ def run_spinq(qasm_str: str, shots: int) -> tuple[Dict[str, int], str | None]:
 
 
 def run_originq(qasm_str: str, shots: int) -> tuple[Dict[str, int], str | None]:
-    """Run via pyqpanda local CPUQVM (best-effort). 返回 (counts, job_id)。
+    """Run via pyQPanda local CPUQVM (best-effort). 返回 (counts, job_id)。
 
-    依赖 pyqpanda SDK；缺 SDK 或 API 不匹配时抛异常，由 adapter 回退到内置模拟器。
+    优先支持旧版 ``pyqpanda``，也支持当前 ``pyqpanda3``。缺 SDK 或 API 不匹配时
+    抛异常，由 adapter 回退到内置模拟器。
     键序按 little-endian 归一化（c[0] 最右），需在真实 pyqpanda 上复核。
     """
-    import pyqpanda as pq
+    try:
+        import pyqpanda as pq
+    except ImportError:
+        return _run_originq_pyqpanda3(qasm_str, shots)
 
     machine = pq.CPUQVM()
     machine.init_qvm()
@@ -119,6 +123,25 @@ def run_originq(qasm_str: str, shots: int) -> tuple[Dict[str, int], str | None]:
         bin_str = bin_str[::-1]
         counts[bin_str] = val
     # 本地 CPUQVM 无云端可溯源 job_id，返回 None 交由 adapter 生成本地任务号。
+    return counts, None
+
+
+def _run_originq_pyqpanda3(
+    qasm_str: str, shots: int
+) -> tuple[Dict[str, int], str | None]:
+    """Run OpenQASM through the pyQPanda3 CPUQVM local simulator."""
+    from pyqpanda3.core import CPUQVM
+    from pyqpanda3.intermediate_compiler import convert_qasm_string_to_qprog
+
+    circuit = parse(qasm_str)
+    prog = convert_qasm_string_to_qprog(qasm_str)
+    qvm = CPUQVM()
+    qvm.run(prog, shots)
+    raw_counts = qvm.result().get_counts()
+    counts: Dict[str, int] = {}
+    for key, value in raw_counts.items():
+        normalized_key = str(key).zfill(circuit.num_clbits)
+        counts[normalized_key] = counts.get(normalized_key, 0) + int(value)
     return counts, None
 
 

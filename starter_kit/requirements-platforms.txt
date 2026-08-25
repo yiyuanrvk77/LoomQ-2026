@@ -1,0 +1,7 @@
+# Optional local/cloud integration for OriginQ.
+pyqpanda3==0.4.1
+requests==2.34.2
+
+# SpinQit is installed from the vendor repository after Windows C++ build tools
+# are available. See README.md; do not add it here until the vendor package is
+# compatible with the submission Python version.

@@ -5,6 +5,8 @@
 **/.DStore
 __pycache__/
 *.py[cod]
+.venv/
+venv/
 
 # 密钥与本地配置（千万不要提交）
 .env

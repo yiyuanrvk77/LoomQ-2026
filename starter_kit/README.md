@@ -177,6 +177,53 @@ OriginQ 的物理设备 ID 不固定，使用 `QCloudService` 查询到的当前
 真机证据的字段和操作步骤见 `evidence/REAL_HARDWARE_EVIDENCE.md`；提交前可运行
 `python3 evidence/validate_hardware_result.py <result.json>` 做本地 Schema 检查。
 
+### Windows：量旋与本源量子云
+
+以下步骤适用于 Windows PowerShell。先在仓库根目录执行：
+
+```powershell
+py -3.11 -m venv .venv
+Set-ExecutionPolicy -Scope Process Bypass
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r starter_kit/requirements-platforms.txt
+```
+
+本源量子本地 SDK 可直接验证：
+
+```powershell
+python starter_kit/examples/run_originq.py
+python starter_kit/evaluator.py --level l1 --target originq
+```
+
+查询本源量子云当前在线设备时，只从环境变量读取 Token：
+
+```powershell
+$env:LOOMQ_ORIGINQ_TOKEN = "你的本源量子云 Token"
+python starter_kit/examples/query_originq_backends.py
+```
+
+输出的实际设备 ID（例如 `WK_C180_2`）才用于真机取证；不要假定题面中的设备名一定仍在线。
+Token 不得写入代码、`.env` 之外的提交文件、截图或 Git 历史。
+
+量旋 SDK 需要本机有 C++ 编译环境。安装 Visual Studio Build Tools 2022，并勾选
+“使用 C++ 的桌面开发”和 Windows SDK，然后重新打开 PowerShell：
+
+```powershell
+python -m pip install cmake
+python -m pip install git+https://github.com/SpinQTech/SpinQit.git
+python starter_kit/examples/run_spinq.py
+python starter_kit/evaluator.py --level l1 --target spinq
+```
+
+若量旋平台或真机不可用，不要修改 `adapter.run()` 去伪造真机；本地模拟器仍可完成 L1、L2
+和包容奖链路。真机只需在平台运行一次并保存原始 JSON、job ID、设备 ID、时间戳和截图，
+按 `evidence/REAL_HARDWARE_EVIDENCE.md` 生成归档文件，再执行：
+
+```powershell
+python starter_kit/evidence/validate_hardware_result.py starter_kit/evidence/files/<result>.json
+```
+
 ## 版本政策
 
 合同版本为 `1.0`。开赛后，`1.x` 只允许增加向后兼容的文档、诊断信息和公开测试，不改变已有接口语义；破坏性修改必须发布新的合同版本并为旧版保留评测通道。

@@ -24,7 +24,7 @@ REQUIRED_FILES = (
     "backend_capabilities.json",
     "l2_policy.json",
 )
-OPTIONAL_SDKS = ("spinqit", "pyqpanda", "braket")
+OPTIONAL_SDKS = ("spinqit", "pyqpanda", "pyqpanda3", "braket")
 
 
 def check_runtime() -> list[str]:
